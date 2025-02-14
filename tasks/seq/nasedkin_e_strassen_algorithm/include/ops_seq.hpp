@@ -17,12 +17,18 @@ class StrassenSequential : public ppc::core::Task {
 
  private:
   // Вспомогательные методы для алгоритма Штрассена
-  std::vector<std::vector<int>> addMatrices(const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B);
-  std::vector<std::vector<int>> subtractMatrices(const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B);
-  void splitMatrix(const std::vector<std::vector<int>>& parent, std::vector<std::vector<int>>& child, int rowStart, int colStart);
-  void mergeMatrix(std::vector<std::vector<int>>& parent, const std::vector<std::vector<int>>& child, int rowStart, int colStart);
-  std::vector<std::vector<int>> standardMultiply(const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B);
-  std::vector<std::vector<int>> strassenMultiply(const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B);
+  std::vector<std::vector<int>> addMatrices(const std::vector<std::vector<int>>& A,
+                                            const std::vector<std::vector<int>>& B);
+  std::vector<std::vector<int>> subtractMatrices(const std::vector<std::vector<int>>& A,
+                                                 const std::vector<std::vector<int>>& B);
+  void splitMatrix(const std::vector<std::vector<int>>& parent, std::vector<std::vector<int>>& child, int rowStart,
+                   int colStart);
+  void mergeMatrix(std::vector<std::vector<int>>& parent, const std::vector<std::vector<int>>& child, int rowStart,
+                   int colStart);
+  std::vector<std::vector<int>> standardMultiply(const std::vector<std::vector<int>>& A,
+                                                 const std::vector<std::vector<int>>& B);
+  std::vector<std::vector<int>> strassenMultiply(const std::vector<std::vector<int>>& A,
+                                                 const std::vector<std::vector<int>>& B);
 
   // Данные задачи
   std::vector<std::vector<int>> input_matrix_A_, input_matrix_B_;
