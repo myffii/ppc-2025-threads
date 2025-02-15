@@ -118,8 +118,8 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_16x16) {
   strassen_task_sequential.PostProcessing();
 }
 
-TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_18x18) {
-  constexpr size_t kMatrixSize = 18;
+TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_31x31) {
+  constexpr size_t kMatrixSize = 31;
 
   // Генерация случайных матриц
   std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
@@ -193,8 +193,8 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_64x64) {
   strassen_task_sequential.PostProcessing();
 }
 
-TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_77x77) {
-  constexpr size_t kMatrixSize = 77;
+TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_127x127) {
+  constexpr size_t kMatrixSize = 127;
 
   // Генерация случайных матриц
   std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
