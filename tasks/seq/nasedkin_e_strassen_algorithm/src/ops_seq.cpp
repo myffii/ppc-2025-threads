@@ -178,7 +178,7 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
   int n = static_cast<int>(a.size());
 
   // Базовый случай: если матрица маленькая, используем стандартное умножение
-  if (n <= 2) {
+  if (n <= 32) {
     return StandardMultiply(a, b);
   }
 
