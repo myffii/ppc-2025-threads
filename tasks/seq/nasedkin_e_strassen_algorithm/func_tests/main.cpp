@@ -23,7 +23,7 @@ std::vector<int> GenerateRandomMatrix(size_t size) {
   return matrix;
 }
 
-  std::vector<int> MultiplyMatricesStandard(const std::vector<int>& a, const std::vector<int>& b, size_t size) {
+std::vector<int> MultiplyMatricesStandard(const std::vector<int>& a, const std::vector<int>& b, size_t size) {
   std::vector<int> result(size * size, 0);
   for (size_t i = 0; i < size; ++i) {
     for (size_t j = 0; j < size; ++j) {
@@ -40,21 +40,9 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_5x5_fixed) {
   constexpr size_t kMatrixSize = 5;
 
   // Задаем фиксированные матрицы A и B размером 5x5
-  std::vector<int> in_a = {
-    1, 2, 3, 4, 5,
-    6, 7, 8, 9, 10,
-    11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25
-};
+  std::vector<int> in_a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25};
 
-  std::vector<int> in_b = {
-    25, 24, 23, 22, 21,
-    20, 19, 18, 17, 16,
-    15, 14, 13, 12, 11,
-    10, 9, 8, 7, 6,
-    5, 4, 3, 2, 1
-};
+  std::vector<int> in_b = {25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
 
   // Вычисляем ожидаемый результат с помощью стандартного умножения матриц
   std::vector<int> expected_result = MultiplyMatricesStandard(in_a, in_b, kMatrixSize);
