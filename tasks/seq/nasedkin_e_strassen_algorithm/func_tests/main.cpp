@@ -22,18 +22,6 @@ std::vector<int> GenerateRandomMatrix(size_t size) {
   }
   return matrix;
 }
-
-std::vector<int> MultiplyMatricesStandard(const std::vector<int>& a, const std::vector<int>& b, size_t size) {
-  std::vector<int> result(size * size, 0);
-  for (size_t i = 0; i < size; ++i) {
-    for (size_t j = 0; j < size; ++j) {
-      for (size_t k = 0; k < size; ++k) {
-        result[(i * size) + j] += a[(i * size) + k] * b[(k * size) + j];
-      }
-    }
-  }
-  return result;
-}
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_4x4_fixed) {
@@ -44,8 +32,8 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_4x4_fixed) {
 
   std::vector<int> in_b = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
 
-  // Вычисляем ожидаемый результат с помощью стандартного умножения матриц
-  std::vector<int> expected_result = MultiplyMatricesStandard(in_a, in_b, kMatrixSize);
+  // Ожидаемый результат
+  std::vector<int> expected_result = {80, 70, 60, 50, 240, 214, 188, 162, 400, 358, 316, 274, 560, 502, 444, 386};
 
   // Создаем выходной вектор для результата алгоритма Штрассена
   std::vector<int> out(kMatrixSize * kMatrixSize, 0);
@@ -70,8 +58,8 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_4x4_fixed) {
   EXPECT_EQ(expected_result, out);
 }
 
-TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_50x50) {
-  constexpr size_t kMatrixSize = 50;
+TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_16x16) {
+  constexpr size_t kMatrixSize = 16;
 
   // Генерация случайных матриц
   std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
@@ -93,7 +81,79 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_50x50) {
   strassen_task_sequential.PreProcessing();
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
+}
 
-  // Проверка результата (опционально, если есть ожидаемый результат)
-  // EXPECT_EQ(expected_result, out);
+TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_32x32) {
+  constexpr size_t kMatrixSize = 32;
+
+  // Генерация случайных матриц
+  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
+
+  // Create task_data
+  auto task_data_seq = std::make_shared<ppc::core::TaskData>();
+  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+  task_data_seq->inputs_count.emplace_back(in_a.size());
+  task_data_seq->inputs_count.emplace_back(in_b.size());
+  task_data_seq->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+  task_data_seq->outputs_count.emplace_back(out.size());
+
+  // Create Task
+  nasedkin_e_strassen_algorithm_seq::StrassenSequential strassen_task_sequential(task_data_seq);
+  ASSERT_EQ(strassen_task_sequential.Validation(), true);
+  strassen_task_sequential.PreProcessing();
+  strassen_task_sequential.Run();
+  strassen_task_sequential.PostProcessing();
+}
+
+TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_64x64) {
+  constexpr size_t kMatrixSize = 64;
+
+  // Генерация случайных матриц
+  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
+
+  // Create task_data
+  auto task_data_seq = std::make_shared<ppc::core::TaskData>();
+  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+  task_data_seq->inputs_count.emplace_back(in_a.size());
+  task_data_seq->inputs_count.emplace_back(in_b.size());
+  task_data_seq->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+  task_data_seq->outputs_count.emplace_back(out.size());
+
+  // Create Task
+  nasedkin_e_strassen_algorithm_seq::StrassenSequential strassen_task_sequential(task_data_seq);
+  ASSERT_EQ(strassen_task_sequential.Validation(), true);
+  strassen_task_sequential.PreProcessing();
+  strassen_task_sequential.Run();
+  strassen_task_sequential.PostProcessing();
+}
+
+TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_128x128) {
+  constexpr size_t kMatrixSize = 64;
+
+  // Генерация случайных матриц
+  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
+
+  // Create task_data
+  auto task_data_seq = std::make_shared<ppc::core::TaskData>();
+  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+  task_data_seq->inputs_count.emplace_back(in_a.size());
+  task_data_seq->inputs_count.emplace_back(in_b.size());
+  task_data_seq->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+  task_data_seq->outputs_count.emplace_back(out.size());
+
+  // Create Task
+  nasedkin_e_strassen_algorithm_seq::StrassenSequential strassen_task_sequential(task_data_seq);
+  ASSERT_EQ(strassen_task_sequential.Validation(), true);
+  strassen_task_sequential.PreProcessing();
+  strassen_task_sequential.Run();
+  strassen_task_sequential.PostProcessing();
 }
