@@ -11,13 +11,13 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() 
 
   // Преобразуем входные данные в матрицы
   matrix_size_ = static_cast<int>(std::sqrt(input_size));
-  input_matrix_A_.resize(matrix_size_, std::vector<int>(matrix_size_));
-  input_matrix_B_.resize(matrix_size_, std::vector<int>(matrix_size_));
+  input_matrix_a_.resize(matrix_size_, std::vector<int>(matrix_size_));
+  input_matrix_b_.resize(matrix_size_, std::vector<int>(matrix_size_));
 
   for (int i = 0; i < matrix_size_; ++i) {
     for (int j = 0; j < matrix_size_; ++j) {
-      input_matrix_A_[i][j] = in_ptr_A[i * matrix_size_ + j];
-      input_matrix_B_[i][j] = in_ptr_B[i * matrix_size_ + j];
+      input_matrix_a_[i][j] = in_ptr_A[i * matrix_size_ + j];
+      input_matrix_b_[i][j] = in_ptr_B[i * matrix_size_ + j];
     }
   }
 
@@ -42,7 +42,7 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::ValidationImpl() {
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::RunImpl() {
   // Выполнение алгоритма Штрассена
-  output_matrix_ = strassenMultiply(input_matrix_A_, input_matrix_B_);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_);
   return true;
 }
 
@@ -57,7 +57,7 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl()
   return true;
 }
 
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::addMatrices(
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::AddMatrices(
     const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B) {
   int n = A.size();
   std::vector<std::vector<int>> result(n, std::vector<int>(n));
@@ -70,7 +70,7 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
 }
 
 // Функция для вычитания двух матриц
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::subtractMatrices(
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::SubtractMatrices(
     const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B) {
   int n = A.size();
   std::vector<std::vector<int>> result(n, std::vector<int>(n));
@@ -83,7 +83,7 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
 }
 
 // Функция для разделения матрицы на 4 подматрицы
-void nasedkin_e_strassen_algorithm_seq::StrassenSequential::splitMatrix(const std::vector<std::vector<int>>& parent,
+void nasedkin_e_strassen_algorithm_seq::StrassenSequential::SplitMatrix(const std::vector<std::vector<int>>& parent,
                                                                         std::vector<std::vector<int>>& child,
                                                                         int rowStart, int colStart) {
   for (int i = 0; i < child.size(); i++) {
@@ -94,7 +94,7 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::splitMatrix(const st
 }
 
 // Функция для слияния 4 подматриц в одну матрицу
-void nasedkin_e_strassen_algorithm_seq::StrassenSequential::mergeMatrix(std::vector<std::vector<int>>& parent,
+void nasedkin_e_strassen_algorithm_seq::StrassenSequential::MergeMatrix(std::vector<std::vector<int>>& parent,
                                                                         const std::vector<std::vector<int>>& child,
                                                                         int rowStart, int colStart) {
   for (int i = 0; i < child.size(); i++) {
@@ -105,7 +105,7 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::mergeMatrix(std::vec
 }
 
 // Стандартное умножение матриц (базовый случай)
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::standardMultiply(
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StandardMultiply(
     const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B) {
   int n = A.size();
   std::vector<std::vector<int>> result(n, std::vector<int>(n, 0));
@@ -120,13 +120,13 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
 }
 
 // Рекурсивная функция умножения матриц по алгоритму Штрассена
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::strassenMultiply(
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StrassenMultiply(
     const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B) {
   int n = A.size();
 
   // Базовый случай: если матрица маленькая, используем стандартное умножение
   if (n <= 2) {
-    return standardMultiply(A, B);
+    return StandardMultiply(A, B);
   }
 
   // Разделение матриц на подматрицы
@@ -135,41 +135,41 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
   std::vector<std::vector<int>> A12(halfSize, std::vector<int>(halfSize));
   std::vector<std::vector<int>> A21(halfSize, std::vector<int>(halfSize));
   std::vector<std::vector<int>> A22(halfSize, std::vector<int>(halfSize));
-  splitMatrix(A, A11, 0, 0);
-  splitMatrix(A, A12, 0, halfSize);
-  splitMatrix(A, A21, halfSize, 0);
-  splitMatrix(A, A22, halfSize, halfSize);
+  SplitMatrix(A, A11, 0, 0);
+  SplitMatrix(A, A12, 0, halfSize);
+  SplitMatrix(A, A21, halfSize, 0);
+  SplitMatrix(A, A22, halfSize, halfSize);
 
   std::vector<std::vector<int>> B11(halfSize, std::vector<int>(halfSize));
   std::vector<std::vector<int>> B12(halfSize, std::vector<int>(halfSize));
   std::vector<std::vector<int>> B21(halfSize, std::vector<int>(halfSize));
   std::vector<std::vector<int>> B22(halfSize, std::vector<int>(halfSize));
-  splitMatrix(B, B11, 0, 0);
-  splitMatrix(B, B12, 0, halfSize);
-  splitMatrix(B, B21, halfSize, 0);
-  splitMatrix(B, B22, halfSize, halfSize);
+  SplitMatrix(B, B11, 0, 0);
+  SplitMatrix(B, B12, 0, halfSize);
+  SplitMatrix(B, B21, halfSize, 0);
+  SplitMatrix(B, B22, halfSize, halfSize);
 
   // Вычисление промежуточных матриц P1-P7
-  std::vector<std::vector<int>> P1 = strassenMultiply(addMatrices(A11, A22), addMatrices(B11, B22));
-  std::vector<std::vector<int>> P2 = strassenMultiply(addMatrices(A21, A22), B11);
-  std::vector<std::vector<int>> P3 = strassenMultiply(A11, subtractMatrices(B12, B22));
-  std::vector<std::vector<int>> P4 = strassenMultiply(A22, subtractMatrices(B21, B11));
-  std::vector<std::vector<int>> P5 = strassenMultiply(addMatrices(A11, A12), B22);
-  std::vector<std::vector<int>> P6 = strassenMultiply(subtractMatrices(A21, A11), addMatrices(B11, B12));
-  std::vector<std::vector<int>> P7 = strassenMultiply(subtractMatrices(A12, A22), addMatrices(B21, B22));
+  std::vector<std::vector<int>> P1 = StrassenMultiply(AddMatrices(A11, A22), AddMatrices(B11, B22));
+  std::vector<std::vector<int>> P2 = StrassenMultiply(AddMatrices(A21, A22), B11);
+  std::vector<std::vector<int>> P3 = StrassenMultiply(A11, SubtractMatrices(B12, B22));
+  std::vector<std::vector<int>> P4 = StrassenMultiply(A22, SubtractMatrices(B21, B11));
+  std::vector<std::vector<int>> P5 = StrassenMultiply(AddMatrices(A11, A12), B22);
+  std::vector<std::vector<int>> P6 = StrassenMultiply(SubtractMatrices(A21, A11), AddMatrices(B11, B12));
+  std::vector<std::vector<int>> P7 = StrassenMultiply(SubtractMatrices(A12, A22), AddMatrices(B21, B22));
 
   // Вычисление результирующих подматриц C11, C12, C21, C22
-  std::vector<std::vector<int>> C11 = addMatrices(subtractMatrices(addMatrices(P1, P4), P5), P7);
-  std::vector<std::vector<int>> C12 = addMatrices(P3, P5);
-  std::vector<std::vector<int>> C21 = addMatrices(P2, P4);
-  std::vector<std::vector<int>> C22 = addMatrices(subtractMatrices(addMatrices(P1, P3), P2), P6);
+  std::vector<std::vector<int>> C11 = AddMatrices(SubtractMatrices(AddMatrices(P1, P4), P5), P7);
+  std::vector<std::vector<int>> C12 = AddMatrices(P3, P5);
+  std::vector<std::vector<int>> C21 = AddMatrices(P2, P4);
+  std::vector<std::vector<int>> C22 = AddMatrices(SubtractMatrices(AddMatrices(P1, P3), P2), P6);
 
   // Слияние подматриц в результирующую матрицу
   std::vector<std::vector<int>> result(n, std::vector<int>(n));
-  mergeMatrix(result, C11, 0, 0);
-  mergeMatrix(result, C12, 0, halfSize);
-  mergeMatrix(result, C21, halfSize, 0);
-  mergeMatrix(result, C22, halfSize, halfSize);
+  MergeMatrix(result, C11, 0, 0);
+  MergeMatrix(result, C12, 0, halfSize);
+  MergeMatrix(result, C21, halfSize, 0);
+  MergeMatrix(result, C22, halfSize, halfSize);
 
   return result;
 }
