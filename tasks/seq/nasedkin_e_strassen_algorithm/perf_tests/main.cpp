@@ -27,12 +27,12 @@ std::vector<int> GenerateRandomMatrix(size_t size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_pipeline_run) {
-  constexpr size_t kCount = 128;  // Размер матрицы (kCount x kCount)
+  constexpr size_t kMatrixSize = 128;  // Размер матрицы (kCount x kCount)
 
   // Генерация случайных матриц
-  std::vector<int> in_a = GenerateRandomMatrix(kCount);
-  std::vector<int> in_b = GenerateRandomMatrix(kCount);
-  std::vector<int> out(kCount * kCount, 0);
+  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
 
   // Create task_data
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -66,12 +66,12 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_pipeline_run) {
 }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_task_run) {
-  constexpr size_t kCount = 128;  // Размер матрицы (kCount x kCount)
+  constexpr size_t kMatrixSize = 128;  // Размер матрицы (kCount x kCount)
 
   // Генерация случайных матриц
-  std::vector<int> in_a = GenerateRandomMatrix(kCount);
-  std::vector<int> in_b = GenerateRandomMatrix(kCount);
-  std::vector<int> out(kCount * kCount, 0);
+  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
 
   // Create task_data
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
