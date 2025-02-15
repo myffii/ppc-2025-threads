@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstddef>  // Для size_t
 #include <cstdint>
 #include <memory>
 #include <random>
@@ -10,8 +11,9 @@
 #include "core/task/include/task.hpp"
 #include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
+namespace {
 // Метод для генерации случайной матрицы
-static std::vector<int> GenerateRandomMatrix(size_t size) {
+std::vector<int> GenerateRandomMatrix(size_t size) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(0, 100);
@@ -22,6 +24,7 @@ static std::vector<int> GenerateRandomMatrix(size_t size) {
   }
   return matrix;
 }
+}  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_pipeline_run) {
   constexpr size_t kCount = 128;  // Размер матрицы (kCount x kCount)

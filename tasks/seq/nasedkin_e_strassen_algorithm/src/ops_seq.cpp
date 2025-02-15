@@ -17,8 +17,8 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() 
 
   for (int i = 0; i < matrix_size_; ++i) {
     for (int j = 0; j < matrix_size_; ++j) {
-      input_matrix_a_[i][j] = in_ptr_a[i * matrix_size_ + j];
-      input_matrix_b_[i][j] = in_ptr_b[i * matrix_size_ + j];
+      input_matrix_a_[i][j] = in_ptr_a[(i * matrix_size_) + j];
+      input_matrix_b_[i][j] = in_ptr_b[(i * matrix_size_) + j];
     }
   }
 
@@ -52,7 +52,7 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl()
   auto* out_ptr = reinterpret_cast<int*>(task_data->outputs[0]);
   for (int i = 0; i < matrix_size_; ++i) {
     for (int j = 0; j < matrix_size_; ++j) {
-      out_ptr[i * matrix_size_ + j] = output_matrix_[i][j];
+      out_ptr[(i * matrix_size_) + j] = output_matrix_[i][j];
     }
   }
   return true;
