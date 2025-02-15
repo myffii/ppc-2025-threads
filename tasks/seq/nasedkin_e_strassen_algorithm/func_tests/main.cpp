@@ -2,14 +2,11 @@
 
 #include <cstddef>  // Для size_t
 #include <cstdint>
-#include <fstream>
 #include <memory>
 #include <random>
-#include <string>
 #include <vector>
 
 #include "core/task/include/task.hpp"
-#include "core/util/include/util.hpp"
 #include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
 namespace {
