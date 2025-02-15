@@ -1,7 +1,7 @@
+#include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
+
 #include <cmath>
 #include <vector>
-
-#include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() {
   // Инициализация входных данных
@@ -57,8 +57,8 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl()
   return true;
 }
 
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::addMatrices(const std::vector<std::vector<int>>& A,
-                                                                                       const std::vector<std::vector<int>>& B) {
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::addMatrices(
+    const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B) {
   int n = A.size();
   std::vector<std::vector<int>> result(n, std::vector<int>(n));
   for (int i = 0; i < n; i++) {
@@ -84,8 +84,8 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
 
 // Функция для разделения матрицы на 4 подматрицы
 void nasedkin_e_strassen_algorithm_seq::StrassenSequential::splitMatrix(const std::vector<std::vector<int>>& parent,
-                                                                        std::vector<std::vector<int>>& child, int rowStart,
-                                                                        int colStart) {
+                                                                        std::vector<std::vector<int>>& child,
+                                                                        int rowStart, int colStart) {
   for (int i = 0; i < child.size(); i++) {
     for (int j = 0; j < child.size(); j++) {
       child[i][j] = parent[rowStart + i][colStart + j];
@@ -95,8 +95,8 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::splitMatrix(const st
 
 // Функция для слияния 4 подматриц в одну матрицу
 void nasedkin_e_strassen_algorithm_seq::StrassenSequential::mergeMatrix(std::vector<std::vector<int>>& parent,
-                                                                        const std::vector<std::vector<int>>& child, int rowStart,
-                                                                        int colStart) {
+                                                                        const std::vector<std::vector<int>>& child,
+                                                                        int rowStart, int colStart) {
   for (int i = 0; i < child.size(); i++) {
     for (int j = 0; j < child.size(); j++) {
       parent[rowStart + i][colStart + j] = child[i][j];
