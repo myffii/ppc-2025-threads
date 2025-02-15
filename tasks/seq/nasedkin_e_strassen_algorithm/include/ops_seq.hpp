@@ -17,18 +17,18 @@ namespace nasedkin_e_strassen_algorithm_seq {
 
     private:
         // Вспомогательные методы для алгоритма Штрассена
-        static std::vector<std::vector<int>> AddMatrices(const std::vector<std::vector<int>>& a,
-                                                         const std::vector<std::vector<int>>& b);
-        static std::vector<std::vector<int>> SubtractMatrices(const std::vector<std::vector<int>>& a,
-                                                              const std::vector<std::vector<int>>& b);
-        static void SplitMatrix(const std::vector<std::vector<int>>& parent, std::vector<std::vector<int>>& child,
+        static std::vector<std::vector<int>> AddMatrices(const std::vector<std::vector<int>> &a,
+                                                         const std::vector<std::vector<int>> &b);
+        static std::vector<std::vector<int>> SubtractMatrices(const std::vector<std::vector<int>> &a,
+                                                              const std::vector<std::vector<int>> &b);
+        static void SplitMatrix(const std::vector<std::vector<int>> &parent, std::vector<std::vector<int>> &child,
                                 int row_start, int col_start);
-        static void MergeMatrix(std::vector<std::vector<int>>& parent, const std::vector<std::vector<int>>& child,
+        static void MergeMatrix(std::vector<std::vector<int>> &parent, const std::vector<std::vector<int>> &child,
                                 int row_start, int col_start);
-        static std::vector<std::vector<int>> StandardMultiply(const std::vector<std::vector<int>>& a,
-                                                              const std::vector<std::vector<int>>& b);
-        static std::vector<std::vector<int>> StrassenMultiply(const std::vector<std::vector<int>>& a,
-                                                              const std::vector<std::vector<int>>& b);
+        static std::vector<std::vector<int>> StandardMultiply(const std::vector<std::vector<int>> &a,
+                                                              const std::vector<std::vector<int>> &b);
+        static std::vector<std::vector<int>> StrassenMultiply(const std::vector<std::vector<int>> &a,
+                                                              const std::vector<std::vector<int>> &b);
 
         // Данные задачи
         std::vector<std::vector<int>> input_matrix_a_, input_matrix_b_;
