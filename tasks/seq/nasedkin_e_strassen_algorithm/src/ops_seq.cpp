@@ -22,6 +22,22 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() 
     }
   }
 
+  // Проверяем, нужно ли дополнять матрицы до степени двойки
+  if ((matrix_size_ & (matrix_size_ - 1)) != 0) {  // Если размер не является степенью двойки
+    // Сохраняем исходный размер матрицы
+    original_size_ = matrix_size_;
+
+    // Дополняем матрицы до ближайшей степени двойки
+    input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_);
+    input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_);
+
+    // Обновляем размер матрицы
+    matrix_size_ = static_cast<int>(input_matrix_a_.size());
+  } else {
+    // Если размер уже степень двойки, исходный размер равен текущему
+    original_size_ = matrix_size_;
+  }
+
   // Инициализация выходной матрицы
   output_matrix_.resize(matrix_size_, std::vector<int>(matrix_size_, 0));
   return true;
@@ -48,6 +64,11 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::RunImpl() {
 }
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl() {
+  // Если матрицы были дополнены, обрезаем результат до исходного размера
+  if (original_size_ != matrix_size_) {
+    output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_);
+  }
+
   // Сохранение результата в выходные данные
   auto* out_ptr = reinterpret_cast<int*>(task_data->outputs[0]);
   for (int i = 0; i < matrix_size_; ++i) {
@@ -100,6 +121,41 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::MergeMatrix(std::vec
       parent[row_start + i][col_start + j] = child[i][j];
     }
   }
+}
+
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::PadMatrixToPowerOfTwo(const std::vector<std::vector<int>>& matrix) {
+  // Определяем текущий размер матрицы
+  size_t original_size = matrix.size();
+
+  // Находим ближайшую степень двойки, которая больше или равна текущему размеру
+  size_t new_size = 1;
+  while (new_size < original_size) {
+    new_size *= 2;
+  }
+
+  // Создаем новую матрицу размером new_size x new_size, заполненную нулями
+  std::vector<std::vector<int>> padded_matrix(new_size, std::vector<int>(new_size, 0));
+
+  // Копируем исходную матрицу в верхний левый угол новой матрицы
+  for (size_t i = 0; i < original_size; ++i) {
+    for (size_t j = 0; j < original_size; ++j) {
+      padded_matrix[i][j] = matrix[i][j];
+    }
+  }
+
+  return padded_matrix;
+}
+
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::TrimMatrixToOriginalSize(const std::vector<std::vector<int>>& matrix, size_t original_size) {
+  std::vector<std::vector<int>> trimmed_matrix(original_size, std::vector<int>(original_size));
+
+  for (size_t i = 0; i < original_size; ++i) {
+    for (size_t j = 0; j < original_size; ++j) {
+      trimmed_matrix[i][j] = matrix[i][j];
+    }
+  }
+
+  return trimmed_matrix;
 }
 
 std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StandardMultiply(

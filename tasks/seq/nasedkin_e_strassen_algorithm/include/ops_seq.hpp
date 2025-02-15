@@ -27,6 +27,8 @@ class StrassenSequential : public ppc::core::Task {
                           int row_start, int col_start);
   static std::vector<std::vector<int>> StandardMultiply(const std::vector<std::vector<int>> &a,
                                                         const std::vector<std::vector<int>> &b);
+  static std::vector<std::vector<int>> PadMatrixToPowerOfTwo(const std::vector<std::vector<int>>& matrix);
+  static std::vector<std::vector<int>> TrimMatrixToOriginalSize(const std::vector<std::vector<int>>& matrix, size_t original_size);
   static std::vector<std::vector<int>> StrassenMultiply(const std::vector<std::vector<int>> &a,
                                                         const std::vector<std::vector<int>> &b);
 
@@ -34,6 +36,7 @@ class StrassenSequential : public ppc::core::Task {
   std::vector<std::vector<int>> input_matrix_a_, input_matrix_b_;
   std::vector<std::vector<int>> output_matrix_;
   int matrix_size_{};
+  int original_size_{};
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_seq
