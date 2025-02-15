@@ -1,8 +1,8 @@
+#include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
+
 #include <cmath>
 #include <cstddef>  // Для size_t
 #include <vector>
-
-#include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() {
   // Инициализация входных данных
