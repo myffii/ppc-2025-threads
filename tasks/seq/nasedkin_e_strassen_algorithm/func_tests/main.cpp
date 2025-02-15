@@ -37,7 +37,7 @@ std::vector<int> MultiplyMatricesStandard(const std::vector<int>& a, const std::
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_4x4_fixed) {
-  constexpr size_t kMatrixSize = 5;
+  constexpr size_t kMatrixSize = 4;
 
   // Задаем фиксированные матрицы A и B размером 5x5
   std::vector<int> in_a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
