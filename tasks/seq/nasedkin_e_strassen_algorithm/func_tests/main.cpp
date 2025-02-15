@@ -59,7 +59,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_4x4_fixed) {
 }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_5x5_fixed) {
-  constexpr size_t kMatrixSize = 4;
+  constexpr size_t kMatrixSize = 5;
 
   // Задаем фиксированные матрицы A и B размером 5x5
   std::vector<int> in_a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25};
