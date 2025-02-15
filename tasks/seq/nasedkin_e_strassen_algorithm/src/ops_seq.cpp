@@ -71,10 +71,9 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl()
 
   // Сохранение результата в выходные данные
   auto* out_ptr = reinterpret_cast<int*>(task_data->outputs[0]);
-  for (int i = 0; i < matrix_size_; ++i) {
-    for (int j = 0; j < matrix_size_; ++j) {
-      out_ptr[(i * matrix_size_) + j] = output_matrix_[i][j];
-    }
+  size_t output_size = original_size_ * original_size_;  // Используем исходный размер
+  for (size_t i = 0; i < output_size; ++i) {
+    out_ptr[i] = output_matrix_[i / original_size_][i % original_size_];
   }
   return true;
 }
