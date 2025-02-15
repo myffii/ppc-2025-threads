@@ -28,7 +28,8 @@ class StrassenSequential : public ppc::core::Task {
   static std::vector<std::vector<int>> StandardMultiply(const std::vector<std::vector<int>> &a,
                                                         const std::vector<std::vector<int>> &b);
   static std::vector<std::vector<int>> PadMatrixToPowerOfTwo(const std::vector<std::vector<int>>& matrix);
-  static std::vector<std::vector<int>> TrimMatrixToOriginalSize(const std::vector<std::vector<int>>& matrix, size_t original_size);
+  static std::vector<std::vector<int>> TrimMatrixToOriginalSize(const std::vector<std::vector<int>>& matrix,
+                                                                size_t original_size);
   static std::vector<std::vector<int>> StrassenMultiply(const std::vector<std::vector<int>> &a,
                                                         const std::vector<std::vector<int>> &b);
 

@@ -123,7 +123,8 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::MergeMatrix(std::vec
   }
 }
 
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::PadMatrixToPowerOfTwo(const std::vector<std::vector<int>>& matrix) {
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::PadMatrixToPowerOfTwo(
+    const std::vector<std::vector<int>>& matrix) {
   // Определяем текущий размер матрицы
   size_t original_size = matrix.size();
 
@@ -146,7 +147,8 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
   return padded_matrix;
 }
 
-std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::TrimMatrixToOriginalSize(const std::vector<std::vector<int>>& matrix, size_t original_size) {
+std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequential::TrimMatrixToOriginalSize(
+    const std::vector<std::vector<int>>& matrix, size_t original_size) {
   std::vector<std::vector<int>> trimmed_matrix(original_size, std::vector<int>(original_size));
 
   for (size_t i = 0; i < original_size; ++i) {
