@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -17,16 +18,14 @@ class StrassenSequential : public ppc::core::Task {
 
  private:
   // Вспомогательные методы для алгоритма Штрассена
-  static std::vector<int> AddMatrices(const std::vector<int>& a, const std::vector<int>& b, int n);
-  static std::vector<int> SubtractMatrices(const std::vector<int>& a, const std::vector<int>& b, int n);
-  static void SplitMatrix(const std::vector<int>& parent, std::vector<int>& child, int row_start, int col_start,
-                          int size);
-  static void MergeMatrix(std::vector<int>& parent, const std::vector<int>& child, int row_start, int col_start,
-                          int size);
-  static std::vector<int> StandardMultiply(const std::vector<int>& a, const std::vector<int>& b, int n);
-  static std::vector<int> PadMatrixToPowerOfTwo(const std::vector<int>& matrix, int original_size);
-  static std::vector<int> TrimMatrixToOriginalSize(const std::vector<int>& matrix, int original_size);
-  static std::vector<int> StrassenMultiply(const std::vector<int>& a, const std::vector<int>& b, int n);
+  static std::vector<int> AddMatrices(const std::vector<int>& a, const std::vector<int>& b);
+  static std::vector<int> SubtractMatrices(const std::vector<int>& a, const std::vector<int>& b);
+  static void SplitMatrix(const std::vector<int>& parent, std::vector<int>& child, int row_start, int col_start);
+  static void MergeMatrix(std::vector<int>& parent, const std::vector<int>& child, int row_start, int col_start);
+  static std::vector<int> StandardMultiply(const std::vector<int>& a, const std::vector<int>& b);
+  static std::vector<int> PadMatrixToPowerOfTwo(const std::vector<int>& matrix);
+  static std::vector<int> TrimMatrixToOriginalSize(const std::vector<int>& matrix, size_t original_size);
+  static std::vector<int> StrassenMultiply(const std::vector<int>& a, const std::vector<int>& b);
 
   // Данные задачи
   std::vector<int> input_matrix_a_, input_matrix_b_;
