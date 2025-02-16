@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -18,25 +17,18 @@ class StrassenSequential : public ppc::core::Task {
 
  private:
   // Вспомогательные методы для алгоритма Штрассена
-  static std::vector<std::vector<int>> AddMatrices(const std::vector<std::vector<int>> &a,
-                                                   const std::vector<std::vector<int>> &b);
-  static std::vector<std::vector<int>> SubtractMatrices(const std::vector<std::vector<int>> &a,
-                                                        const std::vector<std::vector<int>> &b);
-  static void SplitMatrix(const std::vector<std::vector<int>> &parent, std::vector<std::vector<int>> &child,
-                          int row_start, int col_start);
-  static void MergeMatrix(std::vector<std::vector<int>> &parent, const std::vector<std::vector<int>> &child,
-                          int row_start, int col_start);
-  static std::vector<std::vector<int>> StandardMultiply(const std::vector<std::vector<int>> &a,
-                                                        const std::vector<std::vector<int>> &b);
-  static std::vector<std::vector<int>> PadMatrixToPowerOfTwo(const std::vector<std::vector<int>> &matrix);
-  static std::vector<std::vector<int>> TrimMatrixToOriginalSize(const std::vector<std::vector<int>> &matrix,
-                                                                size_t original_size);
-  static std::vector<std::vector<int>> StrassenMultiply(const std::vector<std::vector<int>> &a,
-                                                        const std::vector<std::vector<int>> &b);
+  static std::vector<int> AddMatrices(const std::vector<int>& a, const std::vector<int>& b, int n);
+  static std::vector<int> SubtractMatrices(const std::vector<int>& a, const std::vector<int>& b, int n);
+  static void SplitMatrix(const std::vector<int>& parent, std::vector<int>& child, int row_start, int col_start, int size);
+  static void MergeMatrix(std::vector<int>& parent, const std::vector<int>& child, int row_start, int col_start, int size);
+  static std::vector<int> StandardMultiply(const std::vector<int>& a, const std::vector<int>& b, int n);
+  static std::vector<int> PadMatrixToPowerOfTwo(const std::vector<int>& matrix, int original_size);
+  static std::vector<int> TrimMatrixToOriginalSize(const std::vector<int>& matrix, int original_size);
+  static std::vector<int> StrassenMultiply(const std::vector<int>& a, const std::vector<int>& b, int n);
 
   // Данные задачи
-  std::vector<std::vector<int>> input_matrix_a_, input_matrix_b_;
-  std::vector<std::vector<int>> output_matrix_;
+  std::vector<int> input_matrix_a_, input_matrix_b_;
+  std::vector<int> output_matrix_;
   int matrix_size_{};
   int original_size_{};
 };
