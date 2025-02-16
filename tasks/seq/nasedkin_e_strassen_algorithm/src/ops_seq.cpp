@@ -206,7 +206,8 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
     return result;
   };
 
-  auto subtract_submatrices = [](const std::vector<std::vector<int>>& a, const std::vector<std::vector<int>>& b, int size) {
+  auto subtract_submatrices = [](const std::vector<std::vector<int>>& a, const std::vector<std::vector<int>>& b,
+                                 int size) {
     std::vector<std::vector<int>> result(size, std::vector<int>(size));
     for (int i = 0; i < size; ++i) {
       for (int j = 0; j < size; ++j) {
