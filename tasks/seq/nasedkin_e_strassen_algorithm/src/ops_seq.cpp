@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
+#include <functional>  // Добавлено для std::plus и std::minus
 #include <vector>
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() {
@@ -14,8 +14,8 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() 
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
   input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
-  std::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
-  std::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
+  std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
+  std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
 
   if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
     original_size_ = matrix_size_;
@@ -53,7 +53,7 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl()
   }
 
   auto* out_ptr = reinterpret_cast<int*>(task_data->outputs[0]);
-  std::copy(output_matrix_.begin(), output_matrix_.end(), out_ptr);
+  std::ranges::copy(output_matrix_, out_ptr);
   return true;
 }
 
@@ -61,7 +61,7 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::AddMatri
                                                                                     const std::vector<int>& b,
                                                                                     int size) {
   std::vector<int> result(size * size);
-  std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::plus<int>());
+  std::ranges::transform(a, b, result.begin(), std::plus<>());
   return result;
 }
 
@@ -69,7 +69,7 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Subtract
                                                                                          const std::vector<int>& b,
                                                                                          int size) {
   std::vector<int> result(size * size);
-  std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::minus<int>());
+  std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
 }
 
@@ -82,8 +82,8 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::PadMatri
 
   std::vector<int> padded_matrix(new_size * new_size, 0);
   for (int i = 0; i < original_size; ++i) {
-    std::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
-              padded_matrix.begin() + i * new_size);
+    std::ranges::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
+                      padded_matrix.begin() + i * new_size);
   }
   return padded_matrix;
 }
@@ -92,8 +92,8 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::TrimMatr
     const std::vector<int>& matrix, int original_size, int padded_size) {
   std::vector<int> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
-    std::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
-              trimmed_matrix.begin() + i * original_size);
+    std::ranges::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
+                      trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
 }
@@ -105,7 +105,7 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Standard
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       for (int k = 0; k < size; ++k) {
-        result[i * size + j] += a[i * size + k] * b[k * size + j];
+        result[(i * size) + j] += a[(i * size) + k] * b[(k * size) + j];
       }
     }
   }
@@ -120,10 +120,15 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Strassen
   }
 
   int half_size = size / 2;
-  std::vector<int> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
-      a22(half_size * half_size);
-  std::vector<int> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
-      b22(half_size * half_size);
+  std::vector<int> a11(half_size * half_size);
+  std::vector<int> a12(half_size * half_size);
+  std::vector<int> a21(half_size * half_size);
+  std::vector<int> a22(half_size * half_size);
+
+  std::vector<int> b11(half_size * half_size);
+  std::vector<int> b12(half_size * half_size);
+  std::vector<int> b21(half_size * half_size);
+  std::vector<int> b22(half_size * half_size);
 
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
@@ -164,8 +169,9 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::SplitMatrix(const st
                                                                         int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::copy(parent.begin() + (row_start + i) * parent_size + col_start,
-              parent.begin() + (row_start + i) * parent_size + col_start + child_size, child.begin() + i * child_size);
+    std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
+                      parent.begin() + (row_start + i) * parent_size + col_start + child_size,
+                      child.begin() + i * child_size);
   }
 }
 
@@ -174,7 +180,7 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::MergeMatrix(std::vec
                                                                         int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
-              parent.begin() + (row_start + i) * parent_size + col_start);
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
+                      parent.begin() + (row_start + i) * parent_size + col_start);
   }
 }
