@@ -184,75 +184,45 @@ std::vector<std::vector<int>> nasedkin_e_strassen_algorithm_seq::StrassenSequent
 
   // Разделение матриц на подматрицы
   int half_size = n / 2;
+  std::vector<std::vector<int>> a11(half_size, std::vector<int>(half_size));
+  std::vector<std::vector<int>> a12(half_size, std::vector<int>(half_size));
+  std::vector<std::vector<int>> a21(half_size, std::vector<int>(half_size));
+  std::vector<std::vector<int>> a22(half_size, std::vector<int>(half_size));
+  SplitMatrix(a, a11, 0, 0);
+  SplitMatrix(a, a12, 0, half_size);
+  SplitMatrix(a, a21, half_size, 0);
+  SplitMatrix(a, a22, half_size, half_size);
 
-  // Вспомогательные функции для работы с подматрицами через указатели
-  auto get_submatrix = [](const std::vector<std::vector<int>>& matrix, int row_start, int col_start, int size) {
-    std::vector<std::vector<int>> submatrix(size, std::vector<int>(size));
-    for (int i = 0; i < size; ++i) {
-      for (int j = 0; j < size; ++j) {
-        submatrix[i][j] = matrix[row_start + i][col_start + j];
-      }
-    }
-    return submatrix;
-  };
-
-  auto add_submatrices = [](const std::vector<std::vector<int>>& a, const std::vector<std::vector<int>>& b, int size) {
-    std::vector<std::vector<int>> result(size, std::vector<int>(size));
-    for (int i = 0; i < size; ++i) {
-      for (int j = 0; j < size; ++j) {
-        result[i][j] = a[i][j] + b[i][j];
-      }
-    }
-    return result;
-  };
-
-  auto subtract_submatrices = [](const std::vector<std::vector<int>>& a, const std::vector<std::vector<int>>& b,
-                                 int size) {
-    std::vector<std::vector<int>> result(size, std::vector<int>(size));
-    for (int i = 0; i < size; ++i) {
-      for (int j = 0; j < size; ++j) {
-        result[i][j] = a[i][j] - b[i][j];
-      }
-    }
-    return result;
-  };
-
-  // Получаем подматрицы через указатели
-  auto a11 = get_submatrix(a, 0, 0, half_size);
-  auto a12 = get_submatrix(a, 0, half_size, half_size);
-  auto a21 = get_submatrix(a, half_size, 0, half_size);
-  auto a22 = get_submatrix(a, half_size, half_size, half_size);
-
-  auto b11 = get_submatrix(b, 0, 0, half_size);
-  auto b12 = get_submatrix(b, 0, half_size, half_size);
-  auto b21 = get_submatrix(b, half_size, 0, half_size);
-  auto b22 = get_submatrix(b, half_size, half_size, half_size);
+  std::vector<std::vector<int>> b11(half_size, std::vector<int>(half_size));
+  std::vector<std::vector<int>> b12(half_size, std::vector<int>(half_size));
+  std::vector<std::vector<int>> b21(half_size, std::vector<int>(half_size));
+  std::vector<std::vector<int>> b22(half_size, std::vector<int>(half_size));
+  SplitMatrix(b, b11, 0, 0);
+  SplitMatrix(b, b12, 0, half_size);
+  SplitMatrix(b, b21, half_size, 0);
+  SplitMatrix(b, b22, half_size, half_size);
 
   // Вычисление промежуточных матриц P1-P7
-  auto p1 = StrassenMultiply(add_submatrices(a11, a22, half_size), add_submatrices(b11, b22, half_size));
-  auto p2 = StrassenMultiply(add_submatrices(a21, a22, half_size), b11);
-  auto p3 = StrassenMultiply(a11, subtract_submatrices(b12, b22, half_size));
-  auto p4 = StrassenMultiply(a22, subtract_submatrices(b21, b11, half_size));
-  auto p5 = StrassenMultiply(add_submatrices(a11, a12, half_size), b22);
-  auto p6 = StrassenMultiply(subtract_submatrices(a21, a11, half_size), add_submatrices(b11, b12, half_size));
-  auto p7 = StrassenMultiply(subtract_submatrices(a12, a22, half_size), add_submatrices(b21, b22, half_size));
+  std::vector<std::vector<int>> p1 = StrassenMultiply(AddMatrices(a11, a22), AddMatrices(b11, b22));
+  std::vector<std::vector<int>> p2 = StrassenMultiply(AddMatrices(a21, a22), b11);
+  std::vector<std::vector<int>> p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22));
+  std::vector<std::vector<int>> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11));
+  std::vector<std::vector<int>> p5 = StrassenMultiply(AddMatrices(a11, a12), b22);
+  std::vector<std::vector<int>> p6 = StrassenMultiply(SubtractMatrices(a21, a11), AddMatrices(b11, b12));
+  std::vector<std::vector<int>> p7 = StrassenMultiply(SubtractMatrices(a12, a22), AddMatrices(b21, b22));
 
   // Вычисление результирующих подматриц C11, C12, C21, C22
-  auto c11 = add_submatrices(subtract_submatrices(add_submatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  auto c12 = add_submatrices(p3, p5, half_size);
-  auto c21 = add_submatrices(p2, p4, half_size);
-  auto c22 = add_submatrices(subtract_submatrices(add_submatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+  std::vector<std::vector<int>> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4), p5), p7);
+  std::vector<std::vector<int>> c12 = AddMatrices(p3, p5);
+  std::vector<std::vector<int>> c21 = AddMatrices(p2, p4);
+  std::vector<std::vector<int>> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3), p2), p6);
 
   // Слияние подматриц в результирующую матрицу
   std::vector<std::vector<int>> result(n, std::vector<int>(n));
-  for (int i = 0; i < half_size; ++i) {
-    for (int j = 0; j < half_size; ++j) {
-      result[i][j] = c11[i][j];
-      result[i][j + half_size] = c12[i][j];
-      result[i + half_size][j] = c21[i][j];
-      result[i + half_size][j + half_size] = c22[i][j];
-    }
-  }
+  MergeMatrix(result, c11, 0, 0);
+  MergeMatrix(result, c12, 0, half_size);
+  MergeMatrix(result, c21, half_size, 0);
+  MergeMatrix(result, c22, half_size, half_size);
 
   return result;
 }
