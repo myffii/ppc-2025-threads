@@ -192,9 +192,9 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Strassen
   std::vector<int> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
   std::vector<int> p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
   std::vector<int> p6 =
-       StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+      StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
   std::vector<int> p7 =
-       StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+      StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
 
   // Вычисление результирующих подматриц C11, C12, C21, C22
   std::vector<int> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
