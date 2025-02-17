@@ -115,7 +115,7 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Standard
 std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StrassenMultiply(const std::vector<int>& a,
                                                                                          const std::vector<int>& b,
                                                                                          int size) {
-  if (size <= 1024) {
+  if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
 
