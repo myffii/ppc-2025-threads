@@ -16,17 +16,17 @@ class StrassenSequential : public ppc::core::Task {
   bool PostProcessingImpl() override;
 
  private:
-  static std::vector<int> AddMatrices(const std::vector<int>& a, const std::vector<int>& b, int size);
-  static std::vector<int> SubtractMatrices(const std::vector<int>& a, const std::vector<int>& b, int size);
-  static void SplitMatrix(const std::vector<int>& parent, std::vector<int>& child, int row_start, int col_start,
+  static std::vector<double> AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size);
+  static std::vector<double> SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b, int size);
+  static void SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start, int col_start,
                           int parent_size);
-  static void MergeMatrix(std::vector<int>& parent, const std::vector<int>& child, int row_start, int col_start,
+  static void MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start, int col_start,
                           int parent_size);
-  static std::vector<int> StandardMultiply(const std::vector<int>& a, const std::vector<int>& b, int size);
-  static std::vector<int> StrassenMultiply(const std::vector<int>& a, const std::vector<int>& b, int size);
+  static std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
+  static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
-  std::vector<int> input_matrix_a_, input_matrix_b_;
-  std::vector<int> output_matrix_;
+  std::vector<double> input_matrix_a_, input_matrix_b_;
+  std::vector<double> output_matrix_;
   int matrix_size_{};
 };
 
