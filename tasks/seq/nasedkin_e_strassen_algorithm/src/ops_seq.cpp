@@ -1,9 +1,9 @@
+#include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <functional>
 #include <vector>
-
-#include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() {
   unsigned int input_size = task_data->inputs_count[0];
