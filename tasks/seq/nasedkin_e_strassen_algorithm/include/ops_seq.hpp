@@ -23,14 +23,11 @@ class StrassenSequential : public ppc::core::Task {
   static void MergeMatrix(std::vector<int>& parent, const std::vector<int>& child, int row_start, int col_start,
                           int parent_size);
   static std::vector<int> StandardMultiply(const std::vector<int>& a, const std::vector<int>& b, int size);
-  static std::vector<int> PadMatrixToPowerOfTwo(const std::vector<int>& matrix, int original_size);
-  static std::vector<int> TrimMatrixToOriginalSize(const std::vector<int>& matrix, int original_size, int padded_size);
   static std::vector<int> StrassenMultiply(const std::vector<int>& a, const std::vector<int>& b, int size);
 
   std::vector<int> input_matrix_a_, input_matrix_b_;
   std::vector<int> output_matrix_;
   int matrix_size_{};
-  int original_size_{};
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_seq

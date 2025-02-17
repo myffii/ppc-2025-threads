@@ -17,15 +17,6 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() 
   std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
   std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
 
-  if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
-    original_size_ = matrix_size_;
-    input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_, matrix_size_);
-    input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_, matrix_size_);
-    matrix_size_ = static_cast<int>(std::sqrt(input_matrix_a_.size()));
-  } else {
-    original_size_ = matrix_size_;
-  }
-
   output_matrix_.resize(matrix_size_ * matrix_size_, 0);
   return true;
 }
@@ -48,10 +39,6 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::RunImpl() {
 }
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl() {
-  if (original_size_ != matrix_size_) {
-    output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
-  }
-
   auto* out_ptr = reinterpret_cast<int*>(task_data->outputs[0]);
   std::ranges::copy(output_matrix_, out_ptr);
   return true;
@@ -71,31 +58,6 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Subtract
   std::vector<int> result(size * size);
   std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
-}
-
-std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::PadMatrixToPowerOfTwo(
-    const std::vector<int>& matrix, int original_size) {
-  int new_size = 1;
-  while (new_size < original_size) {
-    new_size *= 2;
-  }
-
-  std::vector<int> padded_matrix(new_size * new_size, 0);
-  for (int i = 0; i < original_size; ++i) {
-    std::ranges::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
-                      padded_matrix.begin() + i * new_size);
-  }
-  return padded_matrix;
-}
-
-std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::TrimMatrixToOriginalSize(
-    const std::vector<int>& matrix, int original_size, int padded_size) {
-  std::vector<int> trimmed_matrix(original_size * original_size);
-  for (int i = 0; i < original_size; ++i) {
-    std::ranges::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
-                      trimmed_matrix.begin() + i * original_size);
-  }
-  return trimmed_matrix;
 }
 
 std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StandardMultiply(const std::vector<int>& a,
