@@ -21,6 +21,20 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
   }
   return matrix;
 }
+
+std::vector<double> MatrixMultiply(const std::vector<double>& a, const std::vector<double>& b, size_t size) {
+  std::vector<double> result(size * size, 0.0);
+  for (size_t i = 0; i < size; ++i) {
+    for (size_t j = 0; j < size; ++j) {
+      double sum = 0.0;
+      for (size_t k = 0; k < size; ++k) {
+        sum += a[(i * size) + k] * b[(k * size) + j];
+      }
+      result[(i * size) + j] = sum;
+    }
+  }
+  return result;
+}
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_63x63_fixed) {
@@ -37,18 +51,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_63x63_fixed) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected_result(kMatrixSize * kMatrixSize);
-
-  for (size_t i = 0; i < kMatrixSize; ++i) {
-    for (size_t j = 0; j < kMatrixSize; ++j) {
-      double sum = 0.0;
-      for (size_t k = 0; k < kMatrixSize; ++k) {
-        sum += in_a[(i * kMatrixSize) + k] * in_b[(k * kMatrixSize) + j];
-      }
-      expected_result[(i * kMatrixSize) + j] = sum;
-    }
-  }
-
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -84,18 +87,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_64x64_fixed) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected_result(kMatrixSize * kMatrixSize);
-
-  for (size_t i = 0; i < kMatrixSize; ++i) {
-    for (size_t j = 0; j < kMatrixSize; ++j) {
-      double sum = 0.0;
-      for (size_t k = 0; k < kMatrixSize; ++k) {
-        sum += in_a[(i * kMatrixSize) + k] * in_b[(k * kMatrixSize) + j];
-      }
-      expected_result[(i * kMatrixSize) + j] = sum;
-    }
-  }
-
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -122,6 +114,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_64x64) {
 
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -137,6 +130,10 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_64x64) {
   strassen_task_sequential.PreProcessing();
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
+
+  for (size_t i = 0; i < expected_result.size(); ++i) {
+    EXPECT_NEAR(expected_result[i], out[i], 1e-6);
+  }
 }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_127x127) {
@@ -144,6 +141,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_127x127) {
 
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -159,6 +157,10 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_127x127) {
   strassen_task_sequential.PreProcessing();
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
+
+  for (size_t i = 0; i < expected_result.size(); ++i) {
+    EXPECT_NEAR(expected_result[i], out[i], 1e-6);
+  }
 }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_128x128) {
@@ -166,6 +168,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_128x128) {
 
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -181,6 +184,10 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_128x128) {
   strassen_task_sequential.PreProcessing();
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
+
+  for (size_t i = 0; i < expected_result.size(); ++i) {
+    EXPECT_NEAR(expected_result[i], out[i], 1e-6);
+  }
 }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_255x255) {
@@ -188,6 +195,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_255x255) {
 
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -203,6 +211,10 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_255x255) {
   strassen_task_sequential.PreProcessing();
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
+
+  for (size_t i = 0; i < expected_result.size(); ++i) {
+    EXPECT_NEAR(expected_result[i], out[i], 1e-6);
+  }
 }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_256x256) {
@@ -210,6 +222,7 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_256x256) {
 
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
@@ -225,4 +238,8 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_256x256) {
   strassen_task_sequential.PreProcessing();
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
+
+  for (size_t i = 0; i < expected_result.size(); ++i) {
+    EXPECT_NEAR(expected_result[i], out[i], 1e-6);
+  }
 }
