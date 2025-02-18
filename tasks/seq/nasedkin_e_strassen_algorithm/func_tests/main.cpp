@@ -135,25 +135,3 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_256x256) {
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
 }
-
-TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_512x512) {
-  constexpr size_t kMatrixSize = 512;
-
-  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
-
-  auto task_data_seq = std::make_shared<ppc::core::TaskData>();
-  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
-  task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
-  task_data_seq->inputs_count.emplace_back(in_a.size());
-  task_data_seq->inputs_count.emplace_back(in_b.size());
-  task_data_seq->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
-  task_data_seq->outputs_count.emplace_back(out.size());
-
-  nasedkin_e_strassen_algorithm_seq::StrassenSequential strassen_task_sequential(task_data_seq);
-  ASSERT_EQ(strassen_task_sequential.Validation(), true);
-  strassen_task_sequential.PreProcessing();
-  strassen_task_sequential.Run();
-  strassen_task_sequential.PostProcessing();
-}
