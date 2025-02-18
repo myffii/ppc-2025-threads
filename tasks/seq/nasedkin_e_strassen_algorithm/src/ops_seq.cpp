@@ -7,8 +7,8 @@
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() {
   unsigned int input_size = task_data->inputs_count[0];
-  auto* in_ptr_a = reinterpret_cast<int*>(task_data->inputs[0]);
-  auto* in_ptr_b = reinterpret_cast<int*>(task_data->inputs[1]);
+  auto* in_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
+  auto* in_ptr_b = reinterpret_cast<double*>(task_data->inputs[1]);
 
   matrix_size_ = static_cast<int>(std::sqrt(input_size));
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
@@ -17,7 +17,7 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PreProcessingImpl() 
   std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
   std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
 
-  output_matrix_.resize(matrix_size_ * matrix_size_, 0);
+  output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
   return true;
 }
 
@@ -39,31 +39,29 @@ bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::RunImpl() {
 }
 
 bool nasedkin_e_strassen_algorithm_seq::StrassenSequential::PostProcessingImpl() {
-  auto* out_ptr = reinterpret_cast<int*>(task_data->outputs[0]);
+  auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
   std::ranges::copy(output_matrix_, out_ptr);
   return true;
 }
 
-std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::AddMatrices(const std::vector<int>& a,
-                                                                                    const std::vector<int>& b,
-                                                                                    int size) {
-  std::vector<int> result(size * size);
+std::vector<double> nasedkin_e_strassen_algorithm_seq::StrassenSequential::AddMatrices(const std::vector<double>& a,
+                                                                                       const std::vector<double>& b,
+                                                                                       int size) {
+  std::vector<double> result(size * size);
   std::ranges::transform(a, b, result.begin(), std::plus<>());
   return result;
 }
 
-std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::SubtractMatrices(const std::vector<int>& a,
-                                                                                         const std::vector<int>& b,
-                                                                                         int size) {
-  std::vector<int> result(size * size);
+std::vector<double> nasedkin_e_strassen_algorithm_seq::StrassenSequential::SubtractMatrices(
+    const std::vector<double>& a, const std::vector<double>& b, int size) {
+  std::vector<double> result(size * size);
   std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
 }
 
-std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StandardMultiply(const std::vector<int>& a,
-                                                                                         const std::vector<int>& b,
-                                                                                         int size) {
-  std::vector<int> result(size * size, 0);
+std::vector<double> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StandardMultiply(
+    const std::vector<double>& a, const std::vector<double>& b, int size) {
+  std::vector<double> result(size * size, 0.0);
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       for (int k = 0; k < size; ++k) {
@@ -74,23 +72,22 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Standard
   return result;
 }
 
-std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StrassenMultiply(const std::vector<int>& a,
-                                                                                         const std::vector<int>& b,
-                                                                                         int size) {
+std::vector<double> nasedkin_e_strassen_algorithm_seq::StrassenSequential::StrassenMultiply(
+    const std::vector<double>& a, const std::vector<double>& b, int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
 
   int half_size = size / 2;
-  std::vector<int> a11(half_size * half_size);
-  std::vector<int> a12(half_size * half_size);
-  std::vector<int> a21(half_size * half_size);
-  std::vector<int> a22(half_size * half_size);
+  std::vector<double> a11(half_size * half_size);
+  std::vector<double> a12(half_size * half_size);
+  std::vector<double> a21(half_size * half_size);
+  std::vector<double> a22(half_size * half_size);
 
-  std::vector<int> b11(half_size * half_size);
-  std::vector<int> b12(half_size * half_size);
-  std::vector<int> b21(half_size * half_size);
-  std::vector<int> b22(half_size * half_size);
+  std::vector<double> b11(half_size * half_size);
+  std::vector<double> b12(half_size * half_size);
+  std::vector<double> b21(half_size * half_size);
+  std::vector<double> b22(half_size * half_size);
 
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
@@ -102,22 +99,23 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Strassen
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<int> p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
-  std::vector<int> p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
-  std::vector<int> p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
-  std::vector<int> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
-  std::vector<int> p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
-  std::vector<int> p6 =
+  std::vector<double> p1 =
+      StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+  std::vector<double> p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
+  std::vector<double> p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
+  std::vector<double> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
+  std::vector<double> p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
+  std::vector<double> p6 =
       StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  std::vector<int> p7 =
+  std::vector<double> p7 =
       StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
 
-  std::vector<int> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::vector<int> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<int> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<int> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
-  std::vector<int> result(size * size);
+  std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
   MergeMatrix(result, c12, 0, half_size, size);
   MergeMatrix(result, c21, half_size, 0, size);
@@ -126,8 +124,8 @@ std::vector<int> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Strassen
   return result;
 }
 
-void nasedkin_e_strassen_algorithm_seq::StrassenSequential::SplitMatrix(const std::vector<int>& parent,
-                                                                        std::vector<int>& child, int row_start,
+void nasedkin_e_strassen_algorithm_seq::StrassenSequential::SplitMatrix(const std::vector<double>& parent,
+                                                                        std::vector<double>& child, int row_start,
                                                                         int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
@@ -137,8 +135,8 @@ void nasedkin_e_strassen_algorithm_seq::StrassenSequential::SplitMatrix(const st
   }
 }
 
-void nasedkin_e_strassen_algorithm_seq::StrassenSequential::MergeMatrix(std::vector<int>& parent,
-                                                                        const std::vector<int>& child, int row_start,
+void nasedkin_e_strassen_algorithm_seq::StrassenSequential::MergeMatrix(std::vector<double>& parent,
+                                                                        const std::vector<double>& child, int row_start,
                                                                         int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {

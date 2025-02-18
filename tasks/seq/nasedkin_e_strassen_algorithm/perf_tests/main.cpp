@@ -12,12 +12,12 @@
 #include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
 namespace {
-std::vector<int> GenerateRandomMatrix(size_t size) {
+std::vector<double> GenerateRandomMatrix(size_t size) {
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> distrib(0, 100);
+  std::uniform_real_distribution<> distrib(0.0, 100.0);
 
-  std::vector<int> matrix(size * size);
+  std::vector<double> matrix(size * size);
   for (size_t i = 0; i < size * size; ++i) {
     matrix[i] = distrib(gen);
   }
@@ -28,9 +28,9 @@ std::vector<int> GenerateRandomMatrix(size_t size) {
 TEST(nasedkin_e_strassen_algorithm_seq, test_pipeline_run) {
   constexpr size_t kMatrixSize = 512;
 
-  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
+  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
   task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -61,9 +61,9 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_pipeline_run) {
 TEST(nasedkin_e_strassen_algorithm_seq, test_task_run) {
   constexpr size_t kMatrixSize = 512;
 
-  std::vector<int> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<int> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<int> out(kMatrixSize * kMatrixSize, 0);
+  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
   task_data_seq->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
