@@ -72,8 +72,8 @@ std::vector<double> nasedkin_e_strassen_algorithm_seq::StrassenSequential::Subtr
   return result;
 }
 
-std::vector<double> nasedkin_e_strassen_algorithm_seq::StandardMultiply(
-    const std::vector<double>& a, const std::vector<double>& b, int size) {
+std::vector<double> nasedkin_e_strassen_algorithm_seq::StandardMultiply(const std::vector<double>& a,
+                                                                        const std::vector<double>& b, int size) {
   std::vector<double> result(size * size, 0.0);
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
