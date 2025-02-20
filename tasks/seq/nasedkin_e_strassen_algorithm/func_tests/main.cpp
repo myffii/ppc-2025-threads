@@ -22,20 +22,6 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
   return matrix;
 }
 
-std::vector<double> MatrixMultiply(const std::vector<double>& a, const std::vector<double>& b, size_t size) {
-  std::vector<double> result(size * size, 0.0);
-  for (size_t i = 0; i < size; ++i) {
-    for (size_t j = 0; j < size; ++j) {
-      double sum = 0.0;
-      for (size_t k = 0; k < size; ++k) {
-        sum += a[(i * size) + k] * b[(k * size) + j];
-      }
-      result[(i * size) + j] = sum;
-    }
-  }
-  return result;
-}
-
 void RunRandomMatrixTest(size_t size) {
   std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateRandomMatrix(size);
@@ -68,7 +54,7 @@ void RunFixedMatrixTest(size_t size) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected_result = MatrixMultiply(in_a, in_b, size);
+  std::vector<double> expected_result = nasedkin_e_strassen_algorithm_seq::StandardMultiply(in_a, in_b, size);
   std::vector<double> out(size * size, 0.0);
 
   auto task_data_seq = std::make_shared<ppc::core::TaskData>();
