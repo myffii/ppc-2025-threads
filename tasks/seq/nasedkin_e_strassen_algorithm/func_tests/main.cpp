@@ -96,7 +96,6 @@ void RunFixedMatrixTest(size_t size) {
 }
 }  // namespace
 
-
 TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
