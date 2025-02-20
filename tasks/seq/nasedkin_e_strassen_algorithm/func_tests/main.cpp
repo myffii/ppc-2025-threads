@@ -10,19 +10,19 @@
 #include "seq/nasedkin_e_strassen_algorithm/include/ops_seq.hpp"
 
 namespace {
-std::vector<double> GenerateRandomMatrix(size_t size) {
+std::vector<double> GenerateRandomMatrix(int size) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> distrib(0.0, 100.0);
 
   std::vector<double> matrix(size * size);
-  for (size_t i = 0; i < size * size; ++i) {
+  for (int i = 0; i < size * size; ++i) {
     matrix[i] = distrib(gen);
   }
   return matrix;
 }
 
-void RunRandomMatrixTest(size_t size) {
+void RunRandomMatrixTest(int size) {
   std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateRandomMatrix(size);
   std::vector<double> out(size * size, 0.0);
@@ -42,15 +42,15 @@ void RunRandomMatrixTest(size_t size) {
   strassen_task_sequential.PostProcessing();
 }
 
-void RunFixedMatrixTest(size_t size) {
+void RunFixedMatrixTest(int size) {
   std::vector<double> in_a(size * size);
   std::vector<double> in_b(size * size);
 
-  for (size_t i = 0; i < size * size; ++i) {
+  for (int i = 0; i < size * size; ++i) {
     in_a[i] = static_cast<double>((size * size) - i);
   }
 
-  for (size_t i = 0; i < size * size; ++i) {
+  for (int i = 0; i < size * size; ++i) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
@@ -71,7 +71,7 @@ void RunFixedMatrixTest(size_t size) {
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
 
-  for (size_t i = 0; i < expected_result.size(); ++i) {
+  for (int i = 0; i < expected_result.size(); ++i) {
     EXPECT_NEAR(expected_result[i], out[i], 1e-6);
   }
 }
