@@ -71,7 +71,7 @@ void RunFixedMatrixTest(int size) {
   strassen_task_sequential.Run();
   strassen_task_sequential.PostProcessing();
 
-  for (int i = 0; i < expected_result.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(expected_result.size()); ++i) {
     EXPECT_NEAR(expected_result[i], out[i], 1e-6);
   }
 }
