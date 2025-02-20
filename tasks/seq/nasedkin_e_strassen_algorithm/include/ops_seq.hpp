@@ -7,7 +7,7 @@
 
 namespace nasedkin_e_strassen_algorithm_seq {
 
-static std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
+std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
 class StrassenSequential : public ppc::core::Task {
  public:
