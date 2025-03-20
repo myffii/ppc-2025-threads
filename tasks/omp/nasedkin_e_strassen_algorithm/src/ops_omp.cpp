@@ -87,7 +87,7 @@ std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double>& a, 
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
   std::vector<double> result(size * size, 0.0);
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for
   for (int i = 0; i < size; i++) {
     for (int j = 0; j < size; j++) {
       double sum = 0.0;
@@ -99,9 +99,6 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
   }
   return result;
 }
-
-// Остальные методы (PadMatrixToPowerOfTwo, TrimMatrixToOriginalSize, SplitMatrix, MergeMatrix) остаются без изменений
-// так как они либо используются до/после основного вычисления, либо не дают значительного выигрыша при параллелизации
 
 std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
@@ -187,7 +184,6 @@ std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, 
   return result;
 }
 
-// Реализация SplitMatrix и MergeMatrix остается без изменений от SEQ версии
 void StrassenOmp::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
