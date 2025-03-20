@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
+
 #include <chrono>
 #include <random>
-#include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
+
 #include "core/perf/include/perf.hpp"
+#include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(size_t size) {
@@ -15,7 +17,7 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
   }
   return matrix;
 }
-}
+}  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_omp, test_pipeline_run) {
   constexpr size_t kMatrixSize = 512;

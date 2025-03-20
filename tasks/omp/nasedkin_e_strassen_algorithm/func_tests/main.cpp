@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
-#include <vector>
+
 #include <random>
+#include <vector>
+
 #include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
 
 namespace {
@@ -65,16 +67,10 @@ void RunFixedMatrixTest(int size) {
     EXPECT_NEAR(expected[i], out[i], 1e-6);
   }
 }
-}
+}  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed) {
-  RunFixedMatrixTest(64);
-}
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_128x128_random) {
-  RunRandomMatrixTest(128);
-}
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_256x256_random) {
-  RunRandomMatrixTest(256);
-}
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
