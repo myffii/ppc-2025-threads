@@ -1,9 +1,12 @@
-#include <gtest/gtest.h>
+#include "core/perf/include/perf.hpp"
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <memory>
 #include <random>
 
-#include "core/perf/include/perf.hpp"
 #include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
 
 namespace {

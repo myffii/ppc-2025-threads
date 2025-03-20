@@ -1,7 +1,8 @@
-#include <omp.h>
-
 #include <algorithm>
 #include <cmath>
+#include <vector>
+
+#include <omp.h>
 
 #include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
 
@@ -109,10 +110,15 @@ std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, 
   }
 
   int half_size = size / 2;
-  std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
-      a22(half_size * half_size);
-  std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
-      b22(half_size * half_size);
+  std::vector<double> a11(half_size * half_size);
+  std::vector<double> a12(half_size * half_size);
+  std::vector<double> a21(half_size * half_size);
+  std::vector<double> a22(half_size * half_size);
+
+  std::vector<double> b11(half_size * half_size);
+  std::vector<double> b12(half_size * half_size);
+  std::vector<double> b21(half_size * half_size);
+  std::vector<double> b22(half_size * half_size);
 
 #pragma omp parallel sections
   {
@@ -134,7 +140,14 @@ std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, 
     SplitMatrix(b, b22, half_size, half_size, size);
   }
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<double> p1;
+  std::vector<double> p2;
+  std::vector<double> p3;
+  std::vector<double> p4;
+  std::vector<double> p5;
+  std::vector<double> p6;
+  std::vector<double> p7;
+
 #pragma omp parallel sections
   {
 #pragma omp section
