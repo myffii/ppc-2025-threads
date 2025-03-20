@@ -1,9 +1,9 @@
 #pragma once
 
-#include "core/task/include/task.hpp"
-
 #include <utility>
 #include <vector>
+
+#include "core/task/include/task.hpp"
 
 namespace nasedkin_e_strassen_algorithm_omp {
 

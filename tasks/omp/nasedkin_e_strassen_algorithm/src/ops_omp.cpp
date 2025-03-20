@@ -1,10 +1,10 @@
-#include <algorithm>
-#include <cmath>
-#include <vector>
+#include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
 
 #include <omp.h>
 
-#include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace nasedkin_e_strassen_algorithm_omp {
 
@@ -92,9 +92,9 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
     for (int j = 0; j < size; j++) {
       double sum = 0.0;
       for (int k = 0; k < size; k++) {
-        sum += a[i * size + k] * b[k * size + j];
+        sum += a[(i * size) + k] * b[(k * size) + j];
       }
-      result[i * size + j] = sum;
+      result[(i * size) + j] = sum;
     }
   }
   return result;
