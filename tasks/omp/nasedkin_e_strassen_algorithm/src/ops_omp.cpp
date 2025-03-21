@@ -70,8 +70,7 @@ std::vector<double> StrassenOmp::AddMatrices(const std::vector<double>& a, const
   std::vector<double> result(size * size);
 #pragma omp parallel for
   for (int i = 0; i < size * size; i++) {
-#pragma omp critical
-    { result[i] = a[i] + b[i]; }
+    result[i] = a[i] + b[i];
   }
   return result;
 }
@@ -81,8 +80,7 @@ std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double>& a, 
   std::vector<double> result(size * size);
 #pragma omp parallel for
   for (int i = 0; i < size * size; i++) {
-#pragma omp critical
-    { result[i] = a[i] - b[i]; }
+    result[i] = a[i] - b[i];
   }
   return result;
 }
