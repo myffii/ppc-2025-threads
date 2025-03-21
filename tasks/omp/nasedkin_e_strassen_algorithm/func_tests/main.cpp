@@ -70,7 +70,7 @@ void RunFixedMatrixTest(int size) {
   for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
     EXPECT_NEAR(expected[i], out[i], 1e-6);
   }
-  std::cout << "fixed matrix test: success" << std::endl;
+  std::cout << "fixed matrix test: success" << "\n";
 }
 }  // namespace
 
