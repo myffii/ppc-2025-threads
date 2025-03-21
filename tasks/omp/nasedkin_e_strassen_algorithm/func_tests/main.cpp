@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <random>
 #include <vector>
