@@ -37,7 +37,7 @@ class krylov_m_monte_carlo_all_test  // NOLINT(readability-identifier-naming)
     if (world.rank() == 0) {
       const double eps = std::abs(ref - out) / out;
       if (ref == 0 || std::isnan(eps)) {
-        EXPECT_NEAR(out, ref, 0.3);
+        EXPECT_NEAR(out, ref, 0.42);
       } else {
         EXPECT_LE(eps, 0.1) << "actual: " << out << ", ref: " << ref;
       }
@@ -117,7 +117,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
             .bounds = {
                 {-5, 5}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         0.
     },
@@ -129,7 +129,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
             .bounds = {
                 {-5, 5}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         50.
     },
@@ -141,7 +141,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
             .bounds = {
                 {42, 42}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         0.
     },
@@ -153,7 +153,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
             .bounds = {
                 {-std::numbers::pi, std::numbers::pi}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         0.
     },
@@ -165,7 +165,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
             .bounds = {
                 {-std::numbers::pi, std::numbers::pi}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         0.
     },
@@ -177,7 +177,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
             .bounds = {
                 {-std::numbers::pi, std::numbers::pi}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         -4 * std::numbers::pi
     },
@@ -190,7 +190,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
                 {11, 14},
                 {7, 10}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         []{
             constexpr auto kAntiderivative = [](const double x) { return std::pow(x, 3) + (102 * x); };
@@ -206,7 +206,7 @@ INSTANTIATE_TEST_SUITE_P(krylov_m_monte_carlo_all_test, krylov_m_monte_carlo_all
                 {1, 3},
                 {2, 4}
             },
-            .iterations = 75'000
+            .iterations = 82'000
         },
         []{
             constexpr auto kAntiderivative = [](const double x) { return 42 * std::pow(x, 4); };

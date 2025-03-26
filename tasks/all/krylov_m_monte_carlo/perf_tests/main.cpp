@@ -48,6 +48,10 @@ class krylov_m_monte_carlo_test_all : public ::testing::Test {  // NOLINT(readab
     runner(perf_analyzer, perf_attr, perf_results);
     if (world.rank() == 0) {
       ppc::core::Perf::PrintPerfStatistic(perf_results);
+
+      const double ref = 2.634;
+      const double eps = std::abs(ref - out) / out;
+      EXPECT_LE(eps, 0.1);
     }
   }
 
