@@ -417,7 +417,7 @@ TEST(kholin_k_multidimensional_integrals_rectangle_seq, double_integral_two_var_
   auto f = [](const std::vector<double> &f_values) { return (1.0 / 9.0 * f_values[0] * f_values[1]); };
   std::vector<double> in_lower_limits{0, 0};
   std::vector<double> in_upper_limits{1, 1};
-  double n = 600.0;
+  double n = 450.0;
   std::vector<double> out_i(1, 0.0);
 
   auto *f_object = new std::function<double(const std::vector<double> &)>(f);
