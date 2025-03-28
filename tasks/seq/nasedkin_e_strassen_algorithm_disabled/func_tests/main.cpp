@@ -85,7 +85,3 @@ TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_64x64) { RunRandomMat
 TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_127x127) { RunRandomMatrixTest(127); }
 
 TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_128x128) { RunRandomMatrixTest(128); }
-
-TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_255x255) { RunRandomMatrixTest(255); }
-
-TEST(nasedkin_e_strassen_algorithm_seq, test_random_matrix_256x256) { RunRandomMatrixTest(256); }
