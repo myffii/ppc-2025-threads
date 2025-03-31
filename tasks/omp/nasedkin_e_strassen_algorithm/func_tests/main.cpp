@@ -136,5 +136,5 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_255x255_random) { RunRandomM
 TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
 TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_64x128_fixed) { RunDifferentSizeFixedMatrixTest(64, 128); }
 TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_128x64_random) {
-RunDifferentSizeRandomMatrixTest(128, 64);
+  RunDifferentSizeRandomMatrixTest(128, 64);
 }
