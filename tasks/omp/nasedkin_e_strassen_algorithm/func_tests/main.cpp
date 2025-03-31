@@ -23,7 +23,7 @@ std::vector<double> GenerateRandomMatrix(int size) {
 std::vector<double> GenerateIdentityMatrix(int size) {
   std::vector<double> matrix(size * size, 0.0);
   for (int i = 0; i < size; ++i) {
-    matrix[i * size + i] = 1.0;
+    matrix[(i * size) + i] = 1.0;
   }
   return matrix;
 }
