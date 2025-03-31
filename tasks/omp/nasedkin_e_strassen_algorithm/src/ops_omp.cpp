@@ -11,7 +11,7 @@ namespace nasedkin_e_strassen_algorithm_omp {
 bool StrassenOmp::PreProcessingImpl() {
   auto* in_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
   auto* in_ptr_b = reinterpret_cast<double*>(task_data->inputs[1]);
-  
+
   // Для тестов зададим размеры явно (в реальном коде это должно быть передано через TaskData)
   if (task_data->inputs_count[0] == 64 * 32 && task_data->inputs_count[1] == 32 * 64) {
     rows_a_ = 64;
@@ -26,10 +26,10 @@ bool StrassenOmp::PreProcessingImpl() {
     cols_a_ = rows_a_;
     cols_b_ = static_cast<int>(std::sqrt(task_data->inputs_count[1]));
   }
-  
+
   input_matrix_a_.resize(rows_a_ * cols_a_);
   input_matrix_b_.resize(cols_a_ * cols_b_);
-  
+
 #pragma omp parallel for
   for (int i = 0; i < rows_a_ * cols_a_; i++) {
     input_matrix_a_[i] = in_ptr_a[i];
@@ -38,22 +38,22 @@ bool StrassenOmp::PreProcessingImpl() {
   for (int i = 0; i < cols_a_ * cols_b_; i++) {
     input_matrix_b_[i] = in_ptr_b[i];
   }
-  
+
   orig_rows_a_ = rows_a_;
   orig_cols_a_ = cols_a_;
   orig_cols_b_ = cols_b_;
-  
+
   int max_dim = std::max({rows_a_, cols_a_, cols_b_});
   int new_size = 1;
   while (new_size < max_dim) new_size *= 2;
-  
+
   if (rows_a_ != new_size || cols_a_ != new_size || cols_b_ != new_size) {
     input_matrix_a_ = PadMatrix(input_matrix_a_, rows_a_, cols_a_, new_size, new_size);
     input_matrix_b_ = PadMatrix(input_matrix_b_, cols_a_, cols_b_, new_size, new_size);
     rows_a_ = cols_a_ = cols_b_ = new_size;
   }
-  
-  output_matrix_.resize(orig_rows_a_ * orig_cols_b_, 0.0); // Изменено на orig размеры
+
+  output_matrix_.resize(orig_rows_a_ * orig_cols_b_, 0.0);
   return true;
 }
 
@@ -62,13 +62,13 @@ bool StrassenOmp::ValidationImpl() {
     return false;
   }
 
-  int size_a = task_data->inputs_count[0]; // rows_a * cols_a
-  int size_b = task_data->inputs_count[1]; // cols_a * cols_b
-  int size_out = task_data->outputs_count[0]; // rows_a * cols_b
+  int size_a = task_data->inputs_count[0];
+  int size_b = task_data->inputs_count[1];
+  int size_out = task_data->outputs_count[0];
 
   // В тестах размеры фиксированы, но здесь мы не знаем rows_a и cols_a заранее
   // Предположим, что размеры переданы корректно, и проверим совместимость
-  return size_out == size_a * size_b / size_a; // Проверка на совместимость
+  return size_out == size_a * size_b / size_a;
 }
 
 bool StrassenOmp::RunImpl() {
