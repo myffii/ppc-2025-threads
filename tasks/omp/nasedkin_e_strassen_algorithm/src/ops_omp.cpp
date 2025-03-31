@@ -154,7 +154,7 @@ std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, 
   {
 #pragma omp section
     p1 = StrassenMultiply(AddMatrices(a11, a22, half_rows, half_cols_a),
-                         AddMatrices(b11, b22, half_cols_a, half_cols_b), half_rows, half_cols_a, half_cols_b);
+                          AddMatrices(b11, b22, half_cols_a, half_cols_b), half_rows, half_cols_a, half_cols_b);
 #pragma omp section
     p2 = StrassenMultiply(AddMatrices(a21, a22, half_rows, half_cols_a), b11, half_rows, half_cols_a, half_cols_b);
 #pragma omp section
