@@ -49,8 +49,7 @@ void RunFixedMatrixTest(int size) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected =
-      nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, size);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, size);
   std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
@@ -86,7 +85,8 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x32_32x64_fixed) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, rows_a, cols_a, cols_b);
+  std::vector<double> expected =
+      nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, rows_a, cols_a, cols_b);
   std::vector<double> out(rows_a * cols_b, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();

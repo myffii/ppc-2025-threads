@@ -29,7 +29,7 @@ class StrassenOmp : public ppc::core::Task {
                           int parent_rows, int parent_cols);
   static std::vector<double> PadMatrix(const std::vector<double>& matrix, int orig_rows, int orig_cols, int new_rows,
                                        int new_cols);
-  static std::vector<double> TrimMatrix(const std::vector<double>& matrix, int padded_rows, int padded_cols, 
+  static std::vector<double> TrimMatrix(const std::vector<double>& matrix, int padded_rows, int padded_cols,
                                         int orig_rows, int orig_cols);
   static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int rows_a,
                                               int cols_a, int cols_b);
