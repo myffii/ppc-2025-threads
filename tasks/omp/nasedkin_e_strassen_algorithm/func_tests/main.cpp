@@ -74,7 +74,7 @@ void RunFixedMatrixTest(int size) {
 void RunDifferentSizeFixedMatrixTest(int size_a, int size_b) {
   std::vector<double> in_a(size_a * size_a);
   std::vector<double> in_b(size_b * size_b);
-  
+
   for (int i = 0; i < size_a * size_a; ++i) {
     in_a[i] = static_cast<double>((size_a * size_a) - i);
   }
@@ -127,9 +127,13 @@ void RunDifferentSizeRandomMatrixTest(int size_a, int size_b) {
 }
 }  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_64x128_fixed) { RunDifferentSizeFixedMatrixTest(64, 128); }
+TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_64x128_fixed) {
+  RunDifferentSizeFixedMatrixTest(64, 128);
+}
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_128x64_random) { RunDifferentSizeRandomMatrixTest(128, 64); }
+TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_128x64_random) {
+  RunDifferentSizeRandomMatrixTest(128, 64);
+}
 
 TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
 
