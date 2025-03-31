@@ -78,8 +78,8 @@ std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double> &a, 
   return result;
 }
 
-std::vector<double> StandardMultiply(const std::vector<double> &a, const std::vector<double> &b,
-                                     int size_a, int size_b) {
+std::vector<double> StandardMultiply(const std::vector<double> &a, const std::vector<double> &b, int size_a,
+                                     int size_b) {
   int result_size = std::max(size_a, size_b);
   std::vector<double> result(result_size * result_size, 0.0);
 #pragma omp parallel for collapse(2)
