@@ -49,7 +49,8 @@ void RunFixedMatrixTest(int size) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, size);
+  std::vector<double> expected =
+      nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, size);
   std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
@@ -74,20 +75,20 @@ void RunFixedMatrixTest(int size) {
 
 TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x32_32x64_fixed) {
   const int rows_a = 64, cols_a = 32, cols_b = 64;
-  
+
   std::vector<double> in_a(rows_a * cols_a);
   std::vector<double> in_b(cols_a * cols_b);
-  
+
   for (int i = 0; i < rows_a * cols_a; ++i) {
     in_a[i] = static_cast<double>((rows_a * cols_a) - i);
   }
   for (int i = 0; i < cols_a * cols_b; ++i) {
     in_b[i] = static_cast<double>(i + 1);
   }
-  
+
   std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, rows_a, cols_a, cols_b);
   std::vector<double> out(rows_a * cols_b, 0.0);
-  
+
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
@@ -95,13 +96,13 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x32_32x64_fixed) {
   task_data->inputs_count.emplace_back(in_b.size());
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
-  
+
   nasedkin_e_strassen_algorithm_omp::StrassenOmp strassen_task(task_data);
   ASSERT_TRUE(strassen_task.Validation());
   strassen_task.PreProcessing();
   strassen_task.Run();
   strassen_task.PostProcessing();
-  
+
   for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
     EXPECT_NEAR(expected[i], out[i], 1e-6);
   }
@@ -113,11 +114,11 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed) { RunFixedMatri
 
 TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_32x64_64x32_random) {
   const int rows_a = 32, cols_a = 64, cols_b = 32;
-  
+
   std::vector<double> in_a = GenerateRandomMatrix(rows_a * cols_a);
   std::vector<double> in_b = GenerateRandomMatrix(cols_a * cols_b);
   std::vector<double> out(rows_a * cols_b, 0.0);
-  
+
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
@@ -125,7 +126,7 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_32x64_64x32_random) {
   task_data->inputs_count.emplace_back(in_b.size());
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
-  
+
   nasedkin_e_strassen_algorithm_omp::StrassenOmp strassen_task(task_data);
   ASSERT_TRUE(strassen_task.Validation());
   strassen_task.PreProcessing();
