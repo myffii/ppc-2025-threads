@@ -49,7 +49,8 @@ void RunFixedMatrixTest(int size) {
     in_b[i] = static_cast<double>(i + 1);
   }
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, size);
+  // Исправленный вызов с пятью аргументами
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, size, size, size);
   std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
