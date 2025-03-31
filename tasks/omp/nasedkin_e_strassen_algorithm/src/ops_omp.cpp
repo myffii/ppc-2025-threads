@@ -9,76 +9,53 @@
 namespace nasedkin_e_strassen_algorithm_omp {
 
 bool StrassenOmp::PreProcessingImpl() {
+  unsigned int input_size = task_data->inputs_count[0];
   auto* in_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
   auto* in_ptr_b = reinterpret_cast<double*>(task_data->inputs[1]);
 
-  // Для тестов зададим размеры явно (в реальном коде это должно быть передано через TaskData)
-  if (task_data->inputs_count[0] == 64 * 32 && task_data->inputs_count[1] == 32 * 64) {
-    rows_a_ = 64;
-    cols_a_ = 32;
-    cols_b_ = 64;
-  } else if (task_data->inputs_count[0] == 32 * 64 && task_data->inputs_count[1] == 64 * 32) {
-    rows_a_ = 32;
-    cols_a_ = 64;
-    cols_b_ = 32;
-  } else {
-    rows_a_ = static_cast<int>(std::sqrt(task_data->inputs_count[0]));
-    cols_a_ = rows_a_;
-    cols_b_ = static_cast<int>(std::sqrt(task_data->inputs_count[1]));
-  }
-
-  input_matrix_a_.resize(rows_a_ * cols_a_);
-  input_matrix_b_.resize(cols_a_ * cols_b_);
+  matrix_size_ = static_cast<int>(std::sqrt(input_size));
+  input_matrix_a_.resize(matrix_size_ * matrix_size_);
+  input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
 #pragma omp parallel for
-  for (int i = 0; i < rows_a_ * cols_a_; i++) {
+  for (int i = 0; i < static_cast<int>(input_size); i++) {
     input_matrix_a_[i] = in_ptr_a[i];
-  }
-#pragma omp parallel for
-  for (int i = 0; i < cols_a_ * cols_b_; i++) {
     input_matrix_b_[i] = in_ptr_b[i];
   }
 
-  orig_rows_a_ = rows_a_;
-  orig_cols_a_ = cols_a_;
-  orig_cols_b_ = cols_b_;
-
-  int max_dim = std::max({rows_a_, cols_a_, cols_b_});
-  int new_size = 1;
-  while (new_size < max_dim) new_size *= 2;
-
-  if (rows_a_ != new_size || cols_a_ != new_size || cols_b_ != new_size) {
-    input_matrix_a_ = PadMatrix(input_matrix_a_, rows_a_, cols_a_, new_size, new_size);
-    input_matrix_b_ = PadMatrix(input_matrix_b_, cols_a_, cols_b_, new_size, new_size);
-    rows_a_ = cols_a_ = cols_b_ = new_size;
+  if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
+    original_size_ = matrix_size_;
+    input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_, matrix_size_);
+    input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_, matrix_size_);
+    matrix_size_ = static_cast<int>(std::sqrt(input_matrix_a_.size()));
+  } else {
+    original_size_ = matrix_size_;
   }
 
-  output_matrix_.resize(orig_rows_a_ * orig_cols_b_, 0.0);
+  output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
   return true;
 }
 
 bool StrassenOmp::ValidationImpl() {
-  if (task_data->inputs_count.size() < 2 || task_data->outputs_count.empty()) {
-    return false;
-  }
+  unsigned int input_size_a = task_data->inputs_count[0];
+  unsigned int input_size_b = task_data->inputs_count[1];
+  unsigned int output_size = task_data->outputs_count[0];
 
-  int size_a = task_data->inputs_count[0];
-  int size_b = task_data->inputs_count[1];
-  int size_out = task_data->outputs_count[0];
+  int size_a = static_cast<int>(std::sqrt(input_size_a));
+  int size_b = static_cast<int>(std::sqrt(input_size_b));
+  int size_output = static_cast<int>(std::sqrt(output_size));
 
-  // В тестах размеры фиксированы, но здесь мы не знаем rows_a и cols_a заранее
-  // Предположим, что размеры переданы корректно, и проверим совместимость
-  return size_out == size_a * size_b / size_a;
+  return (size_a == size_b) && (size_a == size_output);
 }
 
 bool StrassenOmp::RunImpl() {
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, rows_a_, cols_a_, cols_b_);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_);
   return true;
 }
 
 bool StrassenOmp::PostProcessingImpl() {
-  if (orig_rows_a_ != rows_a_ || orig_cols_b_ != cols_b_) {
-    output_matrix_ = TrimMatrix(output_matrix_, rows_a_, cols_b_, orig_rows_a_, orig_cols_b_);
+  if (original_size_ != matrix_size_) {
+    output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
   }
 
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
@@ -89,171 +66,159 @@ bool StrassenOmp::PostProcessingImpl() {
   return true;
 }
 
-std::vector<double> StrassenOmp::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int rows,
-                                             int cols) {
-  std::vector<double> result(rows * cols);
+std::vector<double> StrassenOmp::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
+  std::vector<double> result(size * size);
 #pragma omp parallel for
-  for (int i = 0; i < rows * cols; i++) {
+  for (int i = 0; i < size * size; i++) {
     result[i] = a[i] + b[i];
   }
   return result;
 }
 
-std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b, int rows,
-                                                  int cols) {
-  std::vector<double> result(rows * cols);
+std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
+  std::vector<double> result(size * size);
 #pragma omp parallel for
-  for (int i = 0; i < rows * cols; i++) {
+  for (int i = 0; i < size * size; i++) {
     result[i] = a[i] - b[i];
   }
   return result;
 }
-
-std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int rows_a, int cols_a,
-                                     int cols_b) {
-  std::vector<double> result(rows_a * cols_b, 0.0);
+std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size_a, int size_b) {
+  int result_size = std::max(size_a, size_b);
+  std::vector<double> result(result_size * result_size, 0.0);
 #pragma omp parallel for
-  for (int i = 0; i < rows_a; i++) {
-    for (int j = 0; j < cols_b; j++) {
+  for (int i = 0; i < size_a; i++) {
+    for (int j = 0; j < size_b; j++) {
       double sum = 0.0;
-      for (int k = 0; k < cols_a; k++) {
-        sum += a[i * cols_a + k] * b[k * cols_b + j];
+      for (int k = 0; k < size_a; k++) {
+        sum += a[i * size_a + k] * b[k * size_b + j];
       }
-      result[i * cols_b + j] = sum;
+      result[i * result_size + j] = sum;
     }
   }
   return result;
 }
 
-std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
-                                                  int rows_a, int cols_a, int cols_b) {
-  if (rows_a <= 32 || cols_a <= 32 || cols_b <= 32) {
-    return StandardMultiply(a, b, rows_a, cols_a, cols_b);
+std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size_a, int size_b) {
+  int size = std::max(size_a, size_b);
+  if (size <= 32) {
+    return StandardMultiply(a, b, size_a, size_b);
   }
 
-  int half_rows = rows_a / 2;
-  int half_cols_a = cols_a / 2;
-  int half_cols_b = cols_b / 2;
+  int half_size = size / 2;
+  std::vector<double> a11(half_size * half_size);
+  std::vector<double> a12(half_size * half_size);
+  std::vector<double> a21(half_size * half_size);
+  std::vector<double> a22(half_size * half_size);
 
-  // Разделение матриц
-  std::vector<double> a11(half_rows * half_cols_a);
-  std::vector<double> a12(half_rows * half_cols_a);
-  std::vector<double> a21(half_rows * half_cols_a);
-  std::vector<double> a22(half_rows * half_cols_a);
-
-  std::vector<double> b11(half_cols_a * half_cols_b);
-  std::vector<double> b12(half_cols_a * half_cols_b);
-  std::vector<double> b21(half_cols_a * half_cols_b);
-  std::vector<double> b22(half_cols_a * half_cols_b);
+  std::vector<double> b11(half_size * half_size);
+  std::vector<double> b12(half_size * half_size);
+  std::vector<double> b21(half_size * half_size);
+  std::vector<double> b22(half_size * half_size);
 
 #pragma omp parallel sections
   {
 #pragma omp section
-    SplitMatrix(a, a11, 0, 0, rows_a, cols_a);
+    SplitMatrix(a, a11, 0, 0, size);
 #pragma omp section
-    SplitMatrix(a, a12, 0, half_cols_a, rows_a, cols_a);
+    SplitMatrix(a, a12, 0, half_size, size);
 #pragma omp section
-    SplitMatrix(a, a21, half_rows, 0, rows_a, cols_a);
+    SplitMatrix(a, a21, half_size, 0, size);
 #pragma omp section
-    SplitMatrix(a, a22, half_rows, half_cols_a, rows_a, cols_a);
+    SplitMatrix(a, a22, half_size, half_size, size);
 #pragma omp section
-    SplitMatrix(b, b11, 0, 0, cols_a, cols_b);
+    SplitMatrix(b, b11, 0, 0, size);
 #pragma omp section
-    SplitMatrix(b, b12, 0, half_cols_b, cols_a, cols_b);
+    SplitMatrix(b, b12, 0, half_size, size);
 #pragma omp section
-    SplitMatrix(b, b21, half_cols_a, 0, cols_a, cols_b);
+    SplitMatrix(b, b21, half_size, 0, size);
 #pragma omp section
-    SplitMatrix(b, b22, half_cols_a, half_cols_b, cols_a, cols_b);
+    SplitMatrix(b, b22, half_size, half_size, size);
   }
 
-  // Рекурсивные вычисления
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<double> p1;
+  std::vector<double> p2;
+  std::vector<double> p3;
+  std::vector<double> p4;
+  std::vector<double> p5;
+  std::vector<double> p6;
+  std::vector<double> p7;
+
 #pragma omp parallel sections
   {
 #pragma omp section
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_rows, half_cols_a),
-                          AddMatrices(b11, b22, half_cols_a, half_cols_b), half_rows, half_cols_a, half_cols_b);
+    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
 #pragma omp section
-    p2 = StrassenMultiply(AddMatrices(a21, a22, half_rows, half_cols_a), b11, half_rows, half_cols_a, half_cols_b);
+    p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
 #pragma omp section
-    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_cols_a, half_cols_b), half_rows, half_cols_a,
-                          half_cols_b);
+    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
 #pragma omp section
-    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_cols_a, half_cols_b), half_rows, half_cols_a,
-                          half_cols_b);
+    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
 #pragma omp section
-    p5 = StrassenMultiply(AddMatrices(a11, a12, half_rows, half_cols_a), b22, half_rows, half_cols_a, half_cols_b);
+    p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
 #pragma omp section
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_rows, half_cols_a),
-                          AddMatrices(b11, b12, half_cols_a, half_cols_b), half_rows, half_cols_a, half_cols_b);
+    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
 #pragma omp section
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_rows, half_cols_a),
-                          AddMatrices(b21, b22, half_cols_a, half_cols_b), half_rows, half_cols_a, half_cols_b);
+    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
   }
 
-  // Сборка результата
-  std::vector<double> c11 =
-      AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_rows, half_cols_b), p5, half_rows, half_cols_b), p7,
-                  half_rows, half_cols_b);
-  std::vector<double> c12 = AddMatrices(p3, p5, half_rows, half_cols_b);
-  std::vector<double> c21 = AddMatrices(p2, p4, half_rows, half_cols_b);
-  std::vector<double> c22 =
-      AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_rows, half_cols_b), p2, half_rows, half_cols_b), p6,
-                  half_rows, half_cols_b);
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
-  std::vector<double> result(rows_a * cols_b);
+  std::vector<double> result(size * size);
 #pragma omp parallel sections
   {
 #pragma omp section
-    MergeMatrix(result, c11, 0, 0, rows_a, cols_b);
+    MergeMatrix(result, c11, 0, 0, size);
 #pragma omp section
-    MergeMatrix(result, c12, 0, half_cols_b, rows_a, cols_b);
+    MergeMatrix(result, c12, 0, half_size, size);
 #pragma omp section
-    MergeMatrix(result, c21, half_rows, 0, rows_a, cols_b);
+    MergeMatrix(result, c21, half_size, 0, size);
 #pragma omp section
-    MergeMatrix(result, c22, half_rows, half_cols_b, rows_a, cols_b);
+    MergeMatrix(result, c22, half_size, half_size, size);
   }
 
   return result;
 }
 
 void StrassenOmp::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
-                              int col_start, int parent_rows, int parent_cols) {
-  int child_rows = static_cast<int>(child.size()) / (parent_cols - col_start);
-  int child_cols = parent_cols - col_start;
-  for (int i = 0; i < child_rows; ++i) {
-    std::ranges::copy(parent.begin() + (row_start + i) * parent_cols + col_start,
-                      parent.begin() + (row_start + i) * parent_cols + col_start + child_cols,
-                      child.begin() + i * child_cols);
+                              int col_start, int parent_size) {
+  int child_size = static_cast<int>(std::sqrt(child.size()));
+  for (int i = 0; i < child_size; ++i) {
+    std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
+                      parent.begin() + (row_start + i) * parent_size + col_start + child_size,
+                      child.begin() + i * child_size);
   }
 }
 
 void StrassenOmp::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
-                              int col_start, int parent_rows, int parent_cols) {
-  int child_rows = static_cast<int>(child.size()) / (parent_cols - col_start);
-  int child_cols = parent_cols - col_start;
-  for (int i = 0; i < child_rows; ++i) {
-    std::ranges::copy(child.begin() + i * child_cols, child.begin() + (i + 1) * child_cols,
-                      parent.begin() + (row_start + i) * parent_cols + col_start);
+                              int col_start, int parent_size) {
+  int child_size = static_cast<int>(std::sqrt(child.size()));
+  for (int i = 0; i < child_size; ++i) {
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
+                      parent.begin() + (row_start + i) * parent_size + col_start);
   }
 }
 
-std::vector<double> StrassenOmp::PadMatrix(const std::vector<double>& matrix, int orig_rows, int orig_cols,
-                                           int new_rows, int new_cols) {
-  std::vector<double> padded_matrix(new_rows * new_cols, 0);
-  for (int i = 0; i < orig_rows; ++i) {
-    std::ranges::copy(matrix.begin() + i * orig_cols, matrix.begin() + (i + 1) * orig_cols,
-                      padded_matrix.begin() + i * new_cols);
+std::vector<double> StrassenOmp::PadMatrix(const std::vector<double>& matrix, int original_size, int target_size) {
+  std::vector<double> padded_matrix(target_size * target_size, 0);
+  for (int i = 0; i < original_size; ++i) {
+    std::ranges::copy(matrix.begin() + i * original_size, 
+                      matrix.begin() + i * original_size + std::min(original_size, target_size),
+                      padded_matrix.begin() + i * target_size);
   }
   return padded_matrix;
 }
 
-std::vector<double> StrassenOmp::TrimMatrix(const std::vector<double>& matrix, int padded_rows, int padded_cols,
-                                            int orig_rows, int orig_cols) {
-  std::vector<double> trimmed_matrix(orig_rows * orig_cols);
-  for (int i = 0; i < orig_rows; ++i) {
-    std::ranges::copy(matrix.begin() + i * padded_cols, matrix.begin() + i * padded_cols + orig_cols,
-                      trimmed_matrix.begin() + i * orig_cols);
+std::vector<double> StrassenOmp::TrimMatrix(const std::vector<double>& matrix, int target_size) {
+  std::vector<double> trimmed_matrix(target_size * target_size);
+  for (int i = 0; i < target_size; ++i) {
+    std::ranges::copy(matrix.begin() + i * target_size, 
+                      matrix.begin() + i * target_size + target_size,
+                      trimmed_matrix.begin() + i * target_size);
   }
   return trimmed_matrix;
 }
