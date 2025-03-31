@@ -1,8 +1,9 @@
 #include "omp/nasedkin_e_strassen_algorithm/include/ops_omp.hpp"
 
+#include <omp.h>
+
 #include <algorithm>
 #include <cmath>
-#include <omp.h>
 #include <vector>
 
 namespace nasedkin_e_strassen_algorithm_omp {
@@ -41,13 +42,11 @@ bool StrassenOmp::PreProcessingImpl() {
 }
 
 bool StrassenOmp::ValidationImpl() {
-  return task_data->inputs_count.size() == 2 &&
-         task_data->outputs_count.size() == 1;
+  return task_data->inputs_count.size() == 2 && task_data->outputs_count.size() == 1;
 }
 
 bool StrassenOmp::RunImpl() {
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_,
-                                    matrix_size_a_, matrix_size_b_);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_a_, matrix_size_b_);
   return true;
 }
 
@@ -60,9 +59,7 @@ bool StrassenOmp::PostProcessingImpl() {
   return true;
 }
 
-std::vector<double> StrassenOmp::AddMatrices(const std::vector<double> &a,
-                                             const std::vector<double> &b,
-                                             int size) {
+std::vector<double> StrassenOmp::AddMatrices(const std::vector<double> &a, const std::vector<double> &b, int size) {
   std::vector<double> result(size * size);
 #pragma omp parallel for
   for (int i = 0; i < size * size; i++) {
@@ -71,8 +68,7 @@ std::vector<double> StrassenOmp::AddMatrices(const std::vector<double> &a,
   return result;
 }
 
-std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double> &a,
-                                                  const std::vector<double> &b,
+std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double> &a, const std::vector<double> &b,
                                                   int size) {
   std::vector<double> result(size * size);
 #pragma omp parallel for
@@ -82,9 +78,8 @@ std::vector<double> StrassenOmp::SubtractMatrices(const std::vector<double> &a,
   return result;
 }
 
-std::vector<double> StandardMultiply(const std::vector<double> &a,
-                                     const std::vector<double> &b, int size_a,
-                                     int size_b) {
+std::vector<double> StandardMultiply(const std::vector<double> &a, const std::vector<double> &b,
+                                     int size_a, int size_b) {
   int result_size = std::max(size_a, size_b);
   std::vector<double> result(result_size * result_size, 0.0);
 #pragma omp parallel for collapse(2)
@@ -100,8 +95,7 @@ std::vector<double> StandardMultiply(const std::vector<double> &a,
   return result;
 }
 
-std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double> &a,
-                                                  const std::vector<double> &b,
+std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
                                                   int size_a, int size_b) {
   int size = std::max(size_a, size_b);
   if (size <= 32) {
@@ -150,39 +144,27 @@ std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double> &a,
 #pragma omp parallel sections
   {
 #pragma omp section
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size),
-                          AddMatrices(b11, b22, half_size), half_size,
-                          half_size);
+    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, half_size);
 #pragma omp section
-    p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size,
-                          half_size);
+    p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, half_size);
 #pragma omp section
-    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size,
-                          half_size);
+    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, half_size);
 #pragma omp section
-    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size,
-                          half_size);
+    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, half_size);
 #pragma omp section
-    p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size,
-                          half_size);
+    p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, half_size);
 #pragma omp section
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size),
-                          AddMatrices(b11, b12, half_size), half_size,
-                          half_size);
+    p6 =
+        StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size, half_size);
 #pragma omp section
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size),
-                          AddMatrices(b21, b22, half_size), half_size,
-                          half_size);
+    p7 =
+        StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size, half_size);
   }
 
-  std::vector<double> c11 = AddMatrices(
-      SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7,
-      half_size);
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<double> c22 = AddMatrices(
-      SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6,
-      half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
   std::vector<double> result(size * size);
 #pragma omp parallel sections
@@ -200,50 +182,42 @@ std::vector<double> StrassenOmp::StrassenMultiply(const std::vector<double> &a,
   return result;
 }
 
-void StrassenOmp::SplitMatrix(const std::vector<double> &parent,
-                              std::vector<double> &child, int row_start,
+void StrassenOmp::SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::ranges::copy(
-        parent.begin() + (row_start + i) * parent_size + col_start,
-        parent.begin() + (row_start + i) * parent_size + col_start + child_size,
-        child.begin() + i * child_size);
+    std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
+                      parent.begin() + (row_start + i) * parent_size + col_start + child_size,
+                      child.begin() + i * child_size);
   }
 }
 
-void StrassenOmp::MergeMatrix(std::vector<double> &parent,
-                              const std::vector<double> &child, int row_start,
+void StrassenOmp::MergeMatrix(std::vector<double> &parent, const std::vector<double> &child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::ranges::copy(
-        child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
-        parent.begin() + (row_start + i) * parent_size + col_start);
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
+                      parent.begin() + (row_start + i) * parent_size + col_start);
   }
 }
 
-std::vector<double> StrassenOmp::PadMatrix(const std::vector<double> &matrix,
-                                           int original_size, int target_size) {
+std::vector<double> StrassenOmp::PadMatrix(const std::vector<double> &matrix, int original_size, int target_size) {
   std::vector<double> padded_matrix(target_size * target_size, 0);
   for (int i = 0; i < original_size; ++i) {
     std::ranges::copy(matrix.begin() + i * original_size,
-                      matrix.begin() + i * original_size +
-                          std::min(original_size, target_size),
+                      matrix.begin() + i * original_size + std::min(original_size, target_size),
                       padded_matrix.begin() + i * target_size);
   }
   return padded_matrix;
 }
 
-std::vector<double> StrassenOmp::TrimMatrix(const std::vector<double> &matrix,
-                                            int target_size) {
+std::vector<double> StrassenOmp::TrimMatrix(const std::vector<double> &matrix, int target_size) {
   std::vector<double> trimmed_matrix(target_size * target_size);
   for (int i = 0; i < target_size; ++i) {
-    std::ranges::copy(matrix.begin() + i * target_size,
-                      matrix.begin() + i * target_size + target_size,
+    std::ranges::copy(matrix.begin() + i * target_size, matrix.begin() + i * target_size + target_size,
                       trimmed_matrix.begin() + i * target_size);
   }
   return trimmed_matrix;
 }
 
-} // namespace nasedkin_e_strassen_algorithm_omp
+}  // namespace nasedkin_e_strassen_algorithm_omp

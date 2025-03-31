@@ -127,9 +127,7 @@ void RunDifferentSizeRandomMatrixTest(int size_a, int size_b) {
 }
 }  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_64x128_fixed) {
-  RunDifferentSizeFixedMatrixTest(64, 128);
-}
+TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_64x128_fixed) { RunDifferentSizeFixedMatrixTest(64, 128); }
 
 TEST(nasedkin_e_strassen_algorithm_omp, test_different_size_128x64_random) {
   RunDifferentSizeRandomMatrixTest(128, 64);
