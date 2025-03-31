@@ -7,8 +7,7 @@
 
 namespace nasedkin_e_strassen_algorithm_omp {
 
-std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size_a,
-                                     int size_b);
+std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
 class StrassenOmp : public ppc::core::Task {
  public:
@@ -25,16 +24,15 @@ class StrassenOmp : public ppc::core::Task {
                           int parent_size);
   static void MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start, int col_start,
                           int parent_size);
-  static std::vector<double> PadMatrix(const std::vector<double>& matrix, int original_size, int target_size);
-  static std::vector<double> TrimMatrix(const std::vector<double>& matrix, int target_size);
-  static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size_a,
-                                              int size_b);
+  static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size);
+  static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
+                                                      int padded_size);
+  static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
-  int matrix_size_a_{};
-  int matrix_size_b_{};
-  int max_size_{};
+  int matrix_size_{};
+  int original_size_{};
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_omp
