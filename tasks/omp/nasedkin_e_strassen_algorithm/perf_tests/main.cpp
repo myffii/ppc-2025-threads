@@ -30,8 +30,7 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_pipeline_run) {
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
-  std::vector<double> expected =
-      nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, kMatrixSize);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t *>(in_a.data()));
@@ -41,9 +40,7 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_pipeline_run) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t *>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  auto test_task =
-      std::make_shared<nasedkin_e_strassen_algorithm_omp::StrassenOmp>(
-          task_data);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_omp::StrassenOmp>(task_data);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
   perf_attr->num_running = 10;
@@ -72,8 +69,7 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_task_run) {
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
-  std::vector<double> expected =
-      nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, kMatrixSize);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_omp::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t *>(in_a.data()));
@@ -83,9 +79,7 @@ TEST(nasedkin_e_strassen_algorithm_omp, test_task_run) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t *>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  auto test_task =
-      std::make_shared<nasedkin_e_strassen_algorithm_omp::StrassenOmp>(
-          task_data);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_omp::StrassenOmp>(task_data);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
   perf_attr->num_running = 10;
