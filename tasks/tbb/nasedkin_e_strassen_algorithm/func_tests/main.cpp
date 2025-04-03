@@ -133,14 +133,24 @@ void RunFixedMatrixIdentityTest(int size) {
 }
 }  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_fixed_identity) { RunFixedMatrixIdentityTest(64); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_63x63_random_identity) { RunRandomMatrixIdentityTest(63); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_random_identity) { RunRandomMatrixIdentityTest(64); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
-TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed_identity) { RunFixedMatrixIdentityTest(64); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_random_identity) { RunRandomMatrixIdentityTest(63); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_random_identity) { RunRandomMatrixIdentityTest(64); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
+
+TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
