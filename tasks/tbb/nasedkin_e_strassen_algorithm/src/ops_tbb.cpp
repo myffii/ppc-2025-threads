@@ -1,7 +1,7 @@
+#include "tbb/nasedkin_e_strassen_algorithm/include/ops_tbb.hpp"
+
 #include <tbb/parallel_for.h>
 #include <tbb/task_group.h>
-
-#include "tbb/nasedkin_e_strassen_algorithm/include/ops_tbb.hpp"
 
 namespace nasedkin_e_strassen_algorithm_tbb {
 
