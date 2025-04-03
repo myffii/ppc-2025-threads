@@ -2,11 +2,13 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <random>
 #include <vector>
 
 #include "core/perf/include/perf.hpp"
+#include "core/task/include/task.hpp"
 #include "tbb/nasedkin_e_strassen_algorithm/include/ops_tbb.hpp"
 
 namespace {

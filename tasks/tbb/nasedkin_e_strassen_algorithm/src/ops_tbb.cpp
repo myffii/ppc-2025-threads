@@ -1,7 +1,11 @@
 #include "tbb/nasedkin_e_strassen_algorithm/include/ops_tbb.hpp"
 
-#include <tbb/parallel_for.h>
-#include <tbb/task_group.h>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+#include "oneapi/tbb/parallel_for.h"
+#include "oneapi/tbb/task_group.h"
 
 namespace nasedkin_e_strassen_algorithm_tbb {
 
@@ -14,8 +18,8 @@ bool StrassenTbb::PreProcessingImpl() {
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
   input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
-  tbb::parallel_for(tbb::blocked_range<int>(0, input_size), [&](const tbb::blocked_range<int>& r) {
-    for (int i = r.begin(); i != r.end(); ++i) {
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, input_size), [&](const tbb::blocked_range<size_t>& r) {
+    for (size_t i = r.begin(); i != r.end(); ++i) {
       input_matrix_a_[i] = in_ptr_a[i];
       input_matrix_b_[i] = in_ptr_b[i];
     }
@@ -43,7 +47,7 @@ bool StrassenTbb::ValidationImpl() {
   int size_b = static_cast<int>(std::sqrt(input_size_b));
   int size_output = static_cast<int>(std::sqrt(output_size));
 
-  return (size_a == size_b) && (size_a == size_output);
+  return (task_data->inputs.size() >= 2) && (size_a == size_b) && (size_a == size_output);
 }
 
 bool StrassenTbb::RunImpl() {
@@ -57,8 +61,9 @@ bool StrassenTbb::PostProcessingImpl() {
   }
 
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
-  tbb::parallel_for(tbb::blocked_range<int>(0, output_matrix_.size()), [&](const tbb::blocked_range<int>& r) {
-    for (int i = r.begin(); i != r.end(); ++i) {
+  // Исправлено сужающее преобразование: используем size_t вместо int
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, output_matrix_.size()), [&](const tbb::blocked_range<size_t>& r) {
+    for (size_t i = r.begin(); i != r.end(); ++i) {
       out_ptr[i] = output_matrix_[i];
     }
   });
@@ -129,7 +134,14 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   g1.run([&] { SplitMatrix(b, b22, half_size, half_size, size); });
   g1.wait();
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<double> p1;
+  std::vector<double> p2;
+  std::vector<double> p3;
+  std::vector<double> p4;
+  std::vector<double> p5;
+  std::vector<double> p6;
+  std::vector<double> p7;
+
   tbb::task_group g2;
   g2.run([&] { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
   g2.run([&] { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
