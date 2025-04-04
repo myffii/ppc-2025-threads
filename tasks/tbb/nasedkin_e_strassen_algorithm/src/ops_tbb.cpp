@@ -135,27 +135,33 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   g1.run([&] { SplitMatrix(b, b22, half_size, half_size, size); });
   g1.wait();
 
-  std::vector<double> p1;
-  std::vector<double> p2;
-  std::vector<double> p3;
-  std::vector<double> p4;
-  std::vector<double> p5;
-  std::vector<double> p6;
-  std::vector<double> p7;
+  std::vector<double> s1 = AddMatrices(a11, a22, half_size);
+  std::vector<double> s2 = AddMatrices(b11, b22, half_size);
+  std::vector<double> s3 = AddMatrices(a21, a22, half_size);
+  std::vector<double> s4 = SubtractMatrices(b12, b22, half_size);
+  std::vector<double> s5 = SubtractMatrices(b21, b11, half_size);
+  std::vector<double> s6 = AddMatrices(a11, a12, half_size);
+  std::vector<double> s7 = SubtractMatrices(a21, a11, half_size);
+  std::vector<double> s8 = AddMatrices(b11, b12, half_size);
+  std::vector<double> s9 = SubtractMatrices(a12, a22, half_size);
+  std::vector<double> s10 = AddMatrices(b21, b22, half_size);
 
-  tbb::task_group g2;
-  g2.run([&] { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
-  g2.run([&] { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  g2.run([&] { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  g2.run([&] { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  g2.run([&] { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  g2.run([&] {
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  });
-  g2.run([&] {
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-  });
-  g2.wait();
+  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  tbb::parallel_invoke(
+      [&] {
+        p1 = StrassenMultiply(s1, s2, half_size); 
+        p2 = StrassenMultiply(s3, b11, half_size);
+      },
+      [&] {
+        p3 = StrassenMultiply(a11, s4, half_size);
+        p4 = StrassenMultiply(a22, s5, half_size);
+      },
+      [&] {
+        p5 = StrassenMultiply(s6, b22, half_size);
+        p6 = StrassenMultiply(s7, s8, half_size);
+      },
+      [&] { p7 = StrassenMultiply(s9, s10, half_size); }
+  );
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
