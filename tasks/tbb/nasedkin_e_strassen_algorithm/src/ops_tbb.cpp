@@ -130,8 +130,8 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
       [&] { SplitMatrix(b, b11, 0, 0, size); }, [&] { SplitMatrix(b, b12, 0, half_size, size); },
       [&] { SplitMatrix(b, b21, half_size, 0, size); }, [&] { SplitMatrix(b, b22, half_size, half_size, size); });
 
-  std::vector<double> s1(half_size * half_size); 
-  std::vector<double> s2(half_size * half_size); 
+  std::vector<double> s1(half_size * half_size);
+  std::vector<double> s2(half_size * half_size);
   std::vector<double> s3(half_size * half_size);
   std::vector<double> s4(half_size * half_size);
   std::vector<double> s5(half_size * half_size);
