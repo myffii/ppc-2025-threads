@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "oneapi/tbb/parallel_for.h"
-#include "oneapi/tbb/task_group.h"
 #include "oneapi/tbb/parallel_invoke.h"
+#include "oneapi/tbb/task_group.h"
 
 namespace nasedkin_e_strassen_algorithm_tbb {
 
