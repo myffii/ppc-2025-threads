@@ -4,8 +4,8 @@
 #include <cmath>
 #include <vector>
 
-#include "tbb/parallel_for.h"
-#include "tbb/parallel_invoke.h"
+#include "oneapi/tbb/parallel_invoke.h"
+#include "oneapi/tbb/parallel_for.h"
 
 namespace nasedkin_e_strassen_algorithm_tbb {
 
@@ -130,7 +130,13 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
       [&] { SplitMatrix(b, b11, 0, 0, size); }, [&] { SplitMatrix(b, b12, 0, half_size, size); },
       [&] { SplitMatrix(b, b21, half_size, 0, size); }, [&] { SplitMatrix(b, b22, half_size, half_size, size); });
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<double> p1(half_size * half_size);
+  std::vector<double> p2(half_size * half_size);
+  std::vector<double> p3(half_size * half_size);
+  std::vector<double> p4(half_size * half_size);
+  std::vector<double> p5(half_size * half_size);
+  std::vector<double> p6(half_size * half_size);
+  std::vector<double> p7(half_size * half_size);
 
   tbb::parallel_invoke(
       [&] { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
