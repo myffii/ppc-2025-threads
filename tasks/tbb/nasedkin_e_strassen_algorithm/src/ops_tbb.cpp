@@ -7,7 +7,6 @@
 
 #include "oneapi/tbb/parallel_for.h"
 #include "oneapi/tbb/parallel_invoke.h"
-#include "oneapi/tbb/task_group.h"
 
 namespace nasedkin_e_strassen_algorithm_tbb {
 
@@ -111,7 +110,7 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
 
 std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
-  if (size <= 64) {
+  if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
 
@@ -131,9 +130,16 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
       [&] { SplitMatrix(b, b11, 0, 0, size); }, [&] { SplitMatrix(b, b12, 0, half_size, size); },
       [&] { SplitMatrix(b, b21, half_size, 0, size); }, [&] { SplitMatrix(b, b22, half_size, half_size, size); });
 
-  std::vector<double> s1(half_size * half_size), s2(half_size * half_size), s3(half_size * half_size),
-      s4(half_size * half_size), s5(half_size * half_size), s6(half_size * half_size), s7(half_size * half_size),
-      s8(half_size * half_size), s9(half_size * half_size), s10(half_size * half_size);
+  std::vector<double> s1(half_size * half_size); 
+  std::vector<double> s2(half_size * half_size); 
+  std::vector<double> s3(half_size * half_size);
+  std::vector<double> s4(half_size * half_size);
+  std::vector<double> s5(half_size * half_size);
+  std::vector<double> s6(half_size * half_size);
+  std::vector<double> s7(half_size * half_size);
+  std::vector<double> s8(half_size * half_size);
+  std::vector<double> s9(half_size * half_size);
+  std::vector<double> s10(half_size * half_size);
 
   tbb::parallel_invoke(
       [&] { s1 = AddMatrices(a11, a22, half_size); }, [&] { s2 = AddMatrices(b11, b22, half_size); },
@@ -164,8 +170,10 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
       },
       [&] { p7 = StrassenMultiply(s9, s10, half_size); });
 
-  std::vector<double> c11(half_size * half_size), c12(half_size * half_size), c21(half_size * half_size),
-      c22(half_size * half_size);
+  std::vector<double> c11(half_size * half_size);
+  std::vector<double> c12(half_size * half_size);
+  std::vector<double> c21(half_size * half_size);
+  std::vector<double> c22(half_size * half_size);
 
   tbb::parallel_invoke(
       [&] { c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size); },
