@@ -159,16 +159,16 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
     SplitMatrix(b, b22, half_size, half_size, size);
   }
 
-std::vector<double> s1(half_size* half_size);
-std::vector<double> s2(half_size* half_size);
-std::vector<double> s3(half_size* half_size);
-std::vector<double> s4(half_size* half_size);
-std::vector<double> s5(half_size* half_size);
-std::vector<double> s6(half_size* half_size);
-std::vector<double> s7(half_size* half_size);
-std::vector<double> s8(half_size* half_size);
-std::vector<double> s9(half_size* half_size);
-std::vector<double> s10(half_size* half_size);
+	std::vector<double> s1(half_size* half_size);
+	std::vector<double> s2(half_size* half_size);
+	std::vector<double> s3(half_size* half_size);
+	std::vector<double> s4(half_size* half_size);
+	std::vector<double> s5(half_size* half_size);
+	std::vector<double> s6(half_size* half_size);
+	std::vector<double> s7(half_size* half_size);
+	std::vector<double> s8(half_size* half_size);
+	std::vector<double> s9(half_size* half_size);
+	std::vector<double> s10(half_size* half_size);
 
   if (size == 512) {
     std::vector<std::vector<double>*> s = {&s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9, &s10};
