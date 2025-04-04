@@ -159,56 +159,56 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
     SplitMatrix(b, b22, half_size, half_size, size);
   }
 
-	if (size == 512) {
-	  std::vector<std::vector<double>*> s = {&s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9, &s10};
-	  tbb::parallel_for(tbb::blocked_range<size_t>(0, 10, 2), [&](const tbb::blocked_range<size_t>& r) {
-		for (size_t i = r.begin(); i != r.end(); ++i) {
-		  switch (i) {
-			case 0:
-			  *s[i] = AddMatrices(a11, a22, half_size);
-			  break;
-			case 1:
-			  *s[i] = AddMatrices(b11, b22, half_size);
-			  break;
-			case 2:
-			  *s[i] = AddMatrices(a21, a22, half_size);
-			  break;
-			case 3:
-			  *s[i] = SubtractMatrices(b12, b22, half_size);
-			  break;
-			case 4:
-			  *s[i] = SubtractMatrices(b21, b11, half_size);
-			  break;
-			case 5:
-			  *s[i] = AddMatrices(a11, a12, half_size);
-			  break;
-			case 6:
-			  *s[i] = SubtractMatrices(a21, a11, half_size);
-			  break;
-			case 7:
-			  *s[i] = AddMatrices(b11, b12, half_size);
-			  break;
-			case 8:
-			  *s[i] = SubtractMatrices(a12, a22, half_size);
-			  break;
-			case 9:
-			  *s[i] = AddMatrices(b21, b22, half_size);
-			  break;
-		  }
-		}
-	  });
-	} else {
-	  s1 = AddMatrices(a11, a22, half_size);
-	  s2 = AddMatrices(b11, b22, half_size);
-	  s3 = AddMatrices(a21, a22, half_size);
-	  s4 = SubtractMatrices(b12, b22, half_size);
-	  s5 = SubtractMatrices(b21, b11, half_size);
-	  s6 = AddMatrices(a11, a12, half_size);
-	  s7 = SubtractMatrices(a21, a11, half_size);
-	  s8 = AddMatrices(b11, b12, half_size);
-	  s9 = SubtractMatrices(a12, a22, half_size);
-	  s10 = AddMatrices(b21, b22, half_size);
-	}
+  if (size == 512) {
+    std::vector<std::vector<double>*> s = {&s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9, &s10};
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, 10, 2), [&](const tbb::blocked_range<size_t>& r) {
+      for (size_t i = r.begin(); i != r.end(); ++i) {
+        switch (i) {
+          case 0:
+            *s[i] = AddMatrices(a11, a22, half_size);
+            break;
+          case 1:
+            *s[i] = AddMatrices(b11, b22, half_size);
+            break;
+          case 2:
+            *s[i] = AddMatrices(a21, a22, half_size);
+            break;
+          case 3:
+            *s[i] = SubtractMatrices(b12, b22, half_size);
+            break;
+          case 4:
+            *s[i] = SubtractMatrices(b21, b11, half_size);
+            break;
+          case 5:
+            *s[i] = AddMatrices(a11, a12, half_size);
+            break;
+          case 6:
+            *s[i] = SubtractMatrices(a21, a11, half_size);
+            break;
+          case 7:
+            *s[i] = AddMatrices(b11, b12, half_size);
+            break;
+          case 8:
+            *s[i] = SubtractMatrices(a12, a22, half_size);
+            break;
+          case 9:
+            *s[i] = AddMatrices(b21, b22, half_size);
+            break;
+        }
+      }
+    });
+  } else {
+    s1 = AddMatrices(a11, a22, half_size);
+    s2 = AddMatrices(b11, b22, half_size);
+    s3 = AddMatrices(a21, a22, half_size);
+    s4 = SubtractMatrices(b12, b22, half_size);
+    s5 = SubtractMatrices(b21, b11, half_size);
+    s6 = AddMatrices(a11, a12, half_size);
+    s7 = SubtractMatrices(a21, a11, half_size);
+    s8 = AddMatrices(b11, b12, half_size);
+    s9 = SubtractMatrices(a12, a22, half_size);
+    s10 = AddMatrices(b21, b22, half_size);
+  }
 
   std::vector<double> p1 = StrassenMultiply(s1, s2, half_size);
   std::vector<double> p2 = StrassenMultiply(s3, b11, half_size);
