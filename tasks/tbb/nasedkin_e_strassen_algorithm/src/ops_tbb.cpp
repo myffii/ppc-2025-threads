@@ -150,7 +150,7 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
   tbb::parallel_invoke(
       [&] {
-        p1 = StrassenMultiply(s1, s2, half_size); 
+        p1 = StrassenMultiply(s1, s2, half_size);
         p2 = StrassenMultiply(s3, b11, half_size);
       },
       [&] {
@@ -161,8 +161,7 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
         p5 = StrassenMultiply(s6, b22, half_size);
         p6 = StrassenMultiply(s7, s8, half_size);
       },
-      [&] { p7 = StrassenMultiply(s9, s10, half_size); }
-  );
+      [&] { p7 = StrassenMultiply(s9, s10, half_size); });
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
