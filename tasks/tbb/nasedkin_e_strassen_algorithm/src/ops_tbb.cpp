@@ -74,7 +74,7 @@ bool StrassenTbb::PostProcessingImpl() {
 std::vector<double> StrassenTbb::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
   std::vector<double> result(size * size);
   if (size > 64) {
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, size * size, size * size / 4),
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, size * size, size * size / 2),
                       [&](const tbb::blocked_range<size_t>& r) {
                         for (size_t i = r.begin(); i != r.end(); ++i) {
                           result[i] = a[i] + b[i];
@@ -92,7 +92,7 @@ std::vector<double> StrassenTbb::SubtractMatrices(const std::vector<double>& a, 
                                                   int size) {
   std::vector<double> result(size * size);
   if (size > 64) {
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, size * size, size * size / 4),
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, size * size, size * size / 2),
                       [&](const tbb::blocked_range<size_t>& r) {
                         for (size_t i = r.begin(); i != r.end(); ++i) {
                           result[i] = a[i] - b[i];
@@ -136,12 +136,18 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size * half_size);
   std::vector<double> b22(half_size * half_size);
 
-  if (size >= 256) {
-    tbb::parallel_invoke(
-        [&] { SplitMatrix(a, a11, 0, 0, size); }, [&] { SplitMatrix(a, a12, 0, half_size, size); },
-        [&] { SplitMatrix(a, a21, half_size, 0, size); }, [&] { SplitMatrix(a, a22, half_size, half_size, size); },
-        [&] { SplitMatrix(b, b11, 0, 0, size); }, [&] { SplitMatrix(b, b12, 0, half_size, size); },
-        [&] { SplitMatrix(b, b21, half_size, 0, size); }, [&] { SplitMatrix(b, b22, half_size, half_size, size); });
+  if (size == 512) {
+    std::vector<std::vector<double>*> submatrices = {&a11, &a12, &a21, &a22, &b11, &b12, &b21, &b22};
+    std::vector<std::pair<int, int>> positions = {{0, 0}, {0, half_size}, {half_size, 0}, {half_size, half_size},
+                                                  {0, 0}, {0, half_size}, {half_size, 0}, {half_size, half_size}};
+    const std::vector<double>* matrices[2] = {&a, &b};
+    int matrix_idx[8] = {0, 0, 0, 0, 1, 1, 1, 1};
+
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, 8, 2), [&](const tbb::blocked_range<size_t>& r) {
+      for (size_t i = r.begin(); i != r.end(); ++i) {
+        SplitMatrix(*matrices[matrix_idx[i]], *submatrices[i], positions[i].first, positions[i].second, size);
+      }
+    });
   } else {
     SplitMatrix(a, a11, 0, 0, size);
     SplitMatrix(a, a12, 0, half_size, size);
@@ -153,22 +159,56 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
     SplitMatrix(b, b22, half_size, half_size, size);
   }
 
-  std::vector<double> s1;
-  std::vector<double> s2;
-  std::vector<double> s3;
-  std::vector<double> s4;
-  std::vector<double> s5;
-  std::vector<double> s6;
-  std::vector<double> s7;
-  std::vector<double> s8;
-  std::vector<double> s9;
-  std::vector<double> s10;
-  tbb::parallel_invoke(
-      [&] { s1 = AddMatrices(a11, a22, half_size); }, [&] { s2 = AddMatrices(b11, b22, half_size); },
-      [&] { s3 = AddMatrices(a21, a22, half_size); }, [&] { s4 = SubtractMatrices(b12, b22, half_size); },
-      [&] { s5 = SubtractMatrices(b21, b11, half_size); }, [&] { s6 = AddMatrices(a11, a12, half_size); },
-      [&] { s7 = SubtractMatrices(a21, a11, half_size); }, [&] { s8 = AddMatrices(b11, b12, half_size); },
-      [&] { s9 = SubtractMatrices(a12, a22, half_size); }, [&] { s10 = AddMatrices(b21, b22, half_size); });
+if (size == 512) {
+  std::vector<std::vector<double>*> s = {&s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9, &s10};
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, 10, 2), [&](const tbb::blocked_range<size_t>& r) {
+    for (size_t i = r.begin(); i != r.end(); ++i) {
+      switch (i) {
+        case 0:
+          *s[i] = AddMatrices(a11, a22, half_size);
+          break;
+        case 1:
+          *s[i] = AddMatrices(b11, b22, half_size);
+          break;
+        case 2:
+          *s[i] = AddMatrices(a21, a22, half_size);
+          break;
+        case 3:
+          *s[i] = SubtractMatrices(b12, b22, half_size);
+          break;
+        case 4:
+          *s[i] = SubtractMatrices(b21, b11, half_size);
+          break;
+        case 5:
+          *s[i] = AddMatrices(a11, a12, half_size);
+          break;
+        case 6:
+          *s[i] = SubtractMatrices(a21, a11, half_size);
+          break;
+        case 7:
+          *s[i] = AddMatrices(b11, b12, half_size);
+          break;
+        case 8:
+          *s[i] = SubtractMatrices(a12, a22, half_size);
+          break;
+        case 9:
+          *s[i] = AddMatrices(b21, b22, half_size);
+          break;
+      }
+    }
+  });
+} else {
+  s1 = AddMatrices(a11, a22, half_size);
+  s2 = AddMatrices(b11, b22, half_size);
+  s3 = AddMatrices(a21, a22, half_size);
+  s4 = SubtractMatrices(b12, b22, half_size);
+  s5 = SubtractMatrices(b21, b11, half_size);
+  s6 = AddMatrices(a11, a12, half_size);
+  s7 = SubtractMatrices(a21, a11, half_size);
+  s8 = AddMatrices(b11, b12, half_size);
+  s9 = SubtractMatrices(a12, a22, half_size);
+  s10 = AddMatrices(b21, b22, half_size);
+}
 
   std::vector<double> p1 = StrassenMultiply(s1, s2, half_size);
   std::vector<double> p2 = StrassenMultiply(s3, b11, half_size);
@@ -178,21 +218,21 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6 = StrassenMultiply(s7, s8, half_size);
   std::vector<double> p7 = StrassenMultiply(s9, s10, half_size);
 
-  std::vector<double> c11;
-  std::vector<double> c12;
-  std::vector<double> c21;
-  std::vector<double> c22;
-  tbb::parallel_invoke(
-      [&] { c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size); },
-      [&] { c12 = AddMatrices(p3, p5, half_size); }, [&] { c21 = AddMatrices(p2, p4, half_size); },
-      [&] { c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size); });
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
   std::vector<double> result(size * size);
-  if (size >= 256) {
-    tbb::parallel_invoke([&] { MergeMatrix(result, c11, 0, 0, size); },
-                         [&] { MergeMatrix(result, c12, 0, half_size, size); },
-                         [&] { MergeMatrix(result, c21, half_size, 0, size); },
-                         [&] { MergeMatrix(result, c22, half_size, half_size, size); });
+  if (size == 512) {
+    std::vector<std::vector<double>*> subresults = {&c11, &c12, &c21, &c22};
+    std::vector<std::pair<int, int>> merge_positions = {{0, 0}, {0, half_size}, {half_size, 0}, {half_size, half_size}};
+
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, 4, 1), [&](const tbb::blocked_range<size_t>& r) {
+      for (size_t i = r.begin(); i != r.end(); ++i) {
+        MergeMatrix(result, *subresults[i], merge_positions[i].first, merge_positions[i].second, size);
+      }
+    });
   } else {
     MergeMatrix(result, c11, 0, 0, size);
     MergeMatrix(result, c12, 0, half_size, size);
