@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <vector>
 
-#include "oneapi/tbb/parallel_for.h"
 #include "oneapi/tbb/parallel_invoke.h"
 
 namespace nasedkin_e_strassen_algorithm_tbb {
@@ -117,10 +117,14 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   }
 
   int half_size = size / 2;
-  std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
-      a22(half_size * half_size);
-  std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
-      b22(half_size * half_size);
+  std::vector<double> a11(half_size * half_size);
+  std::vector<double> a12(half_size * half_size);
+  std::vector<double> a21(half_size * half_size);
+  std::vector<double> a22(half_size * half_size);
+  std::vector<double> b11(half_size * half_size);
+  std::vector<double> b12(half_size * half_size);
+  std::vector<double> b21(half_size * half_size);
+  std::vector<double> b22(half_size * half_size);
 
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
@@ -132,9 +136,13 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1(half_size * half_size), p2(half_size * half_size), p3(half_size * half_size),
-      p4(half_size * half_size);
-  std::vector<double> p5(half_size * half_size), p6(half_size * half_size), p7(half_size * half_size);
+  std::vector<double> p1(half_size * half_size);
+  std::vector<double> p2(half_size * half_size);
+  std::vector<double> p3(half_size * half_size);
+  std::vector<double> p4(half_size * half_size);
+  std::vector<double> p5(half_size * half_size);
+  std::vector<double> p6(half_size * half_size);
+  std::vector<double> p7(half_size * half_size);
 
   tbb::parallel_invoke(
       [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
