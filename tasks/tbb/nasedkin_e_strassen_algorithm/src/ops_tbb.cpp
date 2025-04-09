@@ -86,7 +86,7 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
   return result;
 }
 
-std::vector<double> StrassenTbb::PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size) {
+std::vector<double> StrassenTbb::PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size) {
   int new_size = 1;
   while (new_size < original_size) {
     new_size *= 2;
@@ -100,7 +100,7 @@ std::vector<double> StrassenTbb::PadMatrixToPowerOfTwo(const std::vector<double>
   return padded_matrix;
 }
 
-std::vector<double> StrassenTbb::TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
+std::vector<double> StrassenTbb::TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
                                                           int padded_size) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
@@ -110,7 +110,7 @@ std::vector<double> StrassenTbb::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
+std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
@@ -163,7 +163,7 @@ std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double> &a, 
   return result;
 }
 
-void StrassenTbb::SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start,
+void StrassenTbb::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
@@ -173,7 +173,7 @@ void StrassenTbb::SplitMatrix(const std::vector<double> &parent, std::vector<dou
   }
 }
 
-void StrassenTbb::MergeMatrix(std::vector<double> &parent, const std::vector<double> &child, int row_start,
+void StrassenTbb::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
