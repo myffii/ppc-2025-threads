@@ -18,12 +18,8 @@ bool StrassenTbb::PreProcessingImpl() {
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
   input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
-  tbb::parallel_for(tbb::blocked_range<int>(0, static_cast<int>(input_size)), [&](const tbb::blocked_range<int>& r) {
-    for (int i = r.begin(); i < r.end(); ++i) {
-      input_matrix_a_[i] = in_ptr_a[i];
-      input_matrix_b_[i] = in_ptr_b[i];
-    }
-  });
+  std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
+  std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
 
   if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
     original_size_ = matrix_size_;
@@ -61,130 +57,36 @@ bool StrassenTbb::PostProcessingImpl() {
   }
 
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
-  tbb::parallel_for(tbb::blocked_range<int>(0, static_cast<int>(output_matrix_.size())),
-                    [&](const tbb::blocked_range<int>& r) {
-                      for (int i = r.begin(); i < r.end(); ++i) {
-                        out_ptr[i] = output_matrix_[i];
-                      }
-                    });
+  std::ranges::copy(output_matrix_, out_ptr);
   return true;
 }
 
 std::vector<double> StrassenTbb::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
   std::vector<double> result(size * size);
-  tbb::parallel_for(tbb::blocked_range<int>(0, size * size), [&](const tbb::blocked_range<int>& r) {
-    for (int i = r.begin(); i < r.end(); ++i) {
-      result[i] = a[i] + b[i];
-    }
-  });
+  std::ranges::transform(a, b, result.begin(), std::plus<>());
   return result;
 }
 
 std::vector<double> StrassenTbb::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
   std::vector<double> result(size * size);
-  tbb::parallel_for(tbb::blocked_range<int>(0, size * size), [&](const tbb::blocked_range<int>& r) {
-    for (int i = r.begin(); i < r.end(); ++i) {
-      result[i] = a[i] - b[i];
-    }
-  });
+  std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
 }
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
   std::vector<double> result(size * size, 0.0);
-  tbb::parallel_for(tbb::blocked_range<int>(0, size), [&](const tbb::blocked_range<int>& r) {
-    for (int i = r.begin(); i < r.end(); ++i) {
-      for (int j = 0; j < size; ++j) {
-        double sum = 0.0;
-        for (int k = 0; k < size; ++k) {
-          sum += a[(i * size) + k] * b[(k * size) + j];
-        }
-        result[(i * size) + j] = sum;
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      for (int k = 0; k < size; ++k) {
+        result[(i * size) + j] += a[(i * size) + k] * b[(k * size) + j];
       }
     }
-  });
+  }
   return result;
 }
 
-std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
-                                                  int size) {
-  if (size <= 32) {
-    return StandardMultiply(a, b, size);
-  }
-
-  int half_size = size / 2;
-  std::vector<double> a11(half_size * half_size);
-  std::vector<double> a12(half_size * half_size);
-  std::vector<double> a21(half_size * half_size);
-  std::vector<double> a22(half_size * half_size);
-
-  std::vector<double> b11(half_size * half_size);
-  std::vector<double> b12(half_size * half_size);
-  std::vector<double> b21(half_size * half_size);
-  std::vector<double> b22(half_size * half_size);
-
-  tbb::parallel_invoke(
-      [&] { SplitMatrix(a, a11, 0, 0, size); }, [&] { SplitMatrix(a, a12, 0, half_size, size); },
-      [&] { SplitMatrix(a, a21, half_size, 0, size); }, [&] { SplitMatrix(a, a22, half_size, half_size, size); },
-      [&] { SplitMatrix(b, b11, 0, 0, size); }, [&] { SplitMatrix(b, b12, 0, half_size, size); },
-      [&] { SplitMatrix(b, b21, half_size, 0, size); }, [&] { SplitMatrix(b, b22, half_size, half_size, size); });
-
-  std::vector<double> p1(half_size * half_size);
-  std::vector<double> p2(half_size * half_size);
-  std::vector<double> p3(half_size * half_size);
-  std::vector<double> p4(half_size * half_size);
-  std::vector<double> p5(half_size * half_size);
-  std::vector<double> p6(half_size * half_size);
-  std::vector<double> p7(half_size * half_size);
-
-  tbb::parallel_invoke(
-      [&] { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
-      [&] { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); },
-      [&] { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); },
-      [&] { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); },
-      [&] { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); },
-      [&] {
-        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-      },
-      [&] {
-        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-      });
-
-  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
-
-  std::vector<double> result(size * size);
-  tbb::parallel_invoke([&] { MergeMatrix(result, c11, 0, 0, size); },
-                       [&] { MergeMatrix(result, c12, 0, half_size, size); },
-                       [&] { MergeMatrix(result, c21, half_size, 0, size); },
-                       [&] { MergeMatrix(result, c22, half_size, half_size, size); });
-
-  return result;
-}
-
-void StrassenTbb::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
-                              int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size()));
-  for (int i = 0; i < child_size; ++i) {
-    std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
-                      parent.begin() + (row_start + i) * parent_size + col_start + child_size,
-                      child.begin() + i * child_size);
-  }
-}
-
-void StrassenTbb::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
-                              int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size()));
-  for (int i = 0; i < child_size; ++i) {
-    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
-                      parent.begin() + (row_start + i) * parent_size + col_start);
-  }
-}
-
-std::vector<double> StrassenTbb::PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size) {
+std::vector<double> StrassenTbb::PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size) {
   int new_size = 1;
   while (new_size < original_size) {
     new_size *= 2;
@@ -198,7 +100,7 @@ std::vector<double> StrassenTbb::PadMatrixToPowerOfTwo(const std::vector<double>
   return padded_matrix;
 }
 
-std::vector<double> StrassenTbb::TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
+std::vector<double> StrassenTbb::TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
                                                           int padded_size) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
@@ -206,6 +108,78 @@ std::vector<double> StrassenTbb::TrimMatrixToOriginalSize(const std::vector<doub
                       trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
+}
+
+std::vector<double> StrassenTbb::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
+                                                  int size) {
+  if (size <= 32) {
+    return StandardMultiply(a, b, size);
+  }
+
+  int half_size = size / 2;
+  std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
+      a22(half_size * half_size);
+  std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
+      b22(half_size * half_size);
+
+  SplitMatrix(a, a11, 0, 0, size);
+  SplitMatrix(a, a12, 0, half_size, size);
+  SplitMatrix(a, a21, half_size, 0, size);
+  SplitMatrix(a, a22, half_size, half_size, size);
+
+  SplitMatrix(b, b11, 0, 0, size);
+  SplitMatrix(b, b12, 0, half_size, size);
+  SplitMatrix(b, b21, half_size, 0, size);
+  SplitMatrix(b, b22, half_size, half_size, size);
+
+  std::vector<double> p1(half_size * half_size), p2(half_size * half_size), p3(half_size * half_size),
+      p4(half_size * half_size);
+  std::vector<double> p5(half_size * half_size), p6(half_size * half_size), p7(half_size * half_size);
+
+  tbb::parallel_invoke(
+      [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
+      [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); },
+      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); },
+      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); },
+      [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); },
+      [&]() {
+        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+      },
+      [&]() {
+        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+      });
+
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+
+  std::vector<double> result(size * size);
+  MergeMatrix(result, c11, 0, 0, size);
+  MergeMatrix(result, c12, 0, half_size, size);
+  MergeMatrix(result, c21, half_size, 0, size);
+  MergeMatrix(result, c22, half_size, half_size, size);
+
+  return result;
+}
+
+void StrassenTbb::SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start,
+                              int col_start, int parent_size) {
+  int child_size = static_cast<int>(std::sqrt(child.size()));
+  for (int i = 0; i < child_size; ++i) {
+    std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
+                      parent.begin() + (row_start + i) * parent_size + col_start + child_size,
+                      child.begin() + i * child_size);
+  }
+}
+
+void StrassenTbb::MergeMatrix(std::vector<double> &parent, const std::vector<double> &child, int row_start,
+                              int col_start, int parent_size) {
+  int child_size = static_cast<int>(std::sqrt(child.size()));
+  for (int i = 0; i < child_size; ++i) {
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
+                      parent.begin() + (row_start + i) * parent_size + col_start);
+  }
 }
 
 }  // namespace nasedkin_e_strassen_algorithm_tbb
