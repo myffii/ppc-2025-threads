@@ -135,7 +135,9 @@ void RunFixedMatrixIdentityTest(int size) {
 
 TEST(nasedkin_e_strassen_algorithm_tbb, test_validation_zero_size) {
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  std::vector<double> a(0), b(0), out(0);
+  std::vector<double> a(0);
+  std::vector<double> b(0);
+  std::vector<double> out(0);
   task_data->inputs = {reinterpret_cast<uint8_t*>(a.data()), reinterpret_cast<uint8_t*>(b.data())};
   task_data->inputs_count = {0, 0};
   task_data->outputs = {reinterpret_cast<uint8_t*>(out.data())};
