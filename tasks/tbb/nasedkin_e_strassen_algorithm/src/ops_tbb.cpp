@@ -39,6 +39,10 @@ bool StrassenTbb::ValidationImpl() {
   unsigned int input_size_b = task_data->inputs_count[1];
   unsigned int output_size = task_data->outputs_count[0];
 
+  if (input_size_a == 0 || input_size_b == 0 || output_size == 0) {
+    return false;
+  }
+
   int size_a = static_cast<int>(std::sqrt(input_size_a));
   int size_b = static_cast<int>(std::sqrt(input_size_b));
   int size_output = static_cast<int>(std::sqrt(output_size));

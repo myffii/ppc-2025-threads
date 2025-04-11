@@ -133,24 +133,37 @@ void RunFixedMatrixIdentityTest(int size) {
 }
 }  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_validation_zero_size) {
+  auto task_data = std::make_shared<ppc::core::TaskData>();
+  std::vector<double> a(0);
+  std::vector<double> b(0);
+  std::vector<double> out(0);
+  task_data->inputs = {reinterpret_cast<uint8_t*>(a.data()), reinterpret_cast<uint8_t*>(b.data())};
+  task_data->inputs_count = {0, 0};
+  task_data->outputs = {reinterpret_cast<uint8_t*>(out.data())};
+  task_data->outputs_count = {0};
+  nasedkin_e_strassen_algorithm_tbb::StrassenTbb task(task_data);
+  ASSERT_FALSE(task.Validation());
+}
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed_identity) { RunFixedMatrixIdentityTest(64); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_random_identity) { RunRandomMatrixIdentityTest(63); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_fixed_identity) { RunFixedMatrixIdentityTest(64); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_random_identity) { RunRandomMatrixIdentityTest(64); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_63x63_random_identity) { RunRandomMatrixIdentityTest(63); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_random_identity) { RunRandomMatrixIdentityTest(64); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
 
-TEST(nasedkin_e_strassen_algorithm_omp, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
+
+TEST(nasedkin_e_strassen_algorithm_tbb, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
