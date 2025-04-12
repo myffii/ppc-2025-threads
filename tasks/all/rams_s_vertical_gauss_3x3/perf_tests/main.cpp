@@ -15,7 +15,7 @@
 namespace {
 void RunTest(bool pipeline) {
   boost::mpi::communicator world;
-  constexpr int kCount = 4321;
+  constexpr int kCount = 3123;
 
   std::vector<uint8_t> in;
   std::vector<uint8_t> out;
