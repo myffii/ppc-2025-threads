@@ -1,10 +1,11 @@
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
-
 #include <algorithm>
 #include <cmath>
-#include <execution>
+#include <functional>
 #include <future>
+#include <ranges>
 #include <vector>
+
+#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
 
 namespace nasedkin_e_strassen_algorithm_stl {
 
@@ -60,20 +61,20 @@ bool StrassenStl::PostProcessingImpl() {
   }
 
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
-  std::copy(output_matrix_.begin(), output_matrix_.end(), out_ptr);
+  std::ranges::copy(output_matrix_, out_ptr);
   return true;
 }
 
 std::vector<double> StrassenStl::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
   std::vector<double> result(size * size);
-  std::transform(std::execution::par, a.begin(), a.end(), b.begin(), result.begin(), std::plus<>());
+  std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::plus<>());
   return result;
 }
 
 std::vector<double> StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
   std::vector<double> result(size * size);
-  std::transform(std::execution::par, a.begin(), a.end(), b.begin(), result.begin(), std::minus<>());
+  std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::minus<>());
   return result;
 }
 
@@ -82,7 +83,7 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       for (int k = 0; k < size; ++k) {
-        result[i * size + j] += a[i * size + k] * b[k * size + j];
+        result[(i * size) + j] += a[(i * size) + k] * b[(k * size) + j];
       }
     }
   }
@@ -141,7 +142,6 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  // Parallel execution using std::async
   auto p1_future = std::async(std::launch::async, [&]() {
     return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
   });
