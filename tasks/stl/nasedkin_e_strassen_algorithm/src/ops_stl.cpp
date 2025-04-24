@@ -4,7 +4,6 @@
 #include <cmath>
 #include <functional>
 #include <future>
-#include <ranges>
 #include <vector>
 
 namespace nasedkin_e_strassen_algorithm_stl {
