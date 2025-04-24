@@ -1,9 +1,11 @@
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
-
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <future>
+#include <ranges>
 #include <vector>
+
+#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
 
 namespace nasedkin_e_strassen_algorithm_stl {
 
@@ -65,14 +67,14 @@ bool StrassenStl::PostProcessingImpl() {
 
 std::vector<double> StrassenStl::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
   std::vector<double> result(size * size);
-  std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::plus<>());
+  std::ranges::transform(a, b, result.begin(), std::plus<>());
   return result;
 }
 
 std::vector<double> StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
   std::vector<double> result(size * size);
-  std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::minus<>());
+  std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
 }
 
