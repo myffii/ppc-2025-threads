@@ -134,7 +134,7 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
-  SplitMatrix(a / dl > a22, half_size, half_size, size);
+  SplitMatrix(a, a22, half_size, half_size, size);
 
   SplitMatrix(b, b11, 0, 0, size);
   SplitMatrix(b, b12, 0, half_size, size);
