@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <functional>
 #include <future>
+#include <thread>
 #include <vector>
 
 namespace nasedkin_e_strassen_algorithm_stl {
@@ -64,17 +64,16 @@ bool StrassenStl::PostProcessingImpl() {
   return true;
 }
 
-std::vector<double> StrassenStl::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
-  std::vector<double> result(size * size);
+// Оптимизированная версия AddMatrices с передачей результата по ссылке
+void StrassenStl::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, std::vector<double>& result,
+                              int size) {
   std::ranges::transform(a, b, result.begin(), std::plus<>());
-  return result;
 }
 
-std::vector<double> StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
-                                                  int size) {
-  std::vector<double> result(size * size);
+// Оптимизированная версия SubtractMatrices с передачей результата по ссылке
+void StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
+                                   std::vector<double>& result, int size) {
   std::ranges::transform(a, b, result.begin(), std::minus<>());
-  return result;
 }
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
@@ -141,40 +140,99 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  auto p1_future = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
-  });
-  auto p2_future = std::async(std::launch::async,
-                              [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  std::vector<double> temp(half_size_squared);   // Временный буфер для промежуточных результатов
+  std::vector<double> temp2(half_size_squared);  // Второй временный буфер
 
-  std::vector<double> p1 = p1_future.get();
-  std::vector<double> p2 = p2_future.get();
+  // Определяем количество доступных ядер
+  static unsigned int num_threads = std::thread::hardware_concurrency();
+  if (num_threads == 0) num_threads = 2;  // Если не удалось определить, предполагаем 2 ядра
 
-  auto p3_future = std::async(
-      std::launch::async, [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  auto p4_future = std::async(
-      std::launch::async, [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  // Параллельное выполнение с использованием std::thread и std::promise/std::future
+  const auto compute_task = [&](std::size_t task_id, std::promise<std::vector<double>>&& promise) {
+    std::vector<double> local_temp(half_size_squared);
+    std::vector<double> local_temp2(half_size_squared);
+    std::vector<double> result(half_size_squared);
+    switch (task_id) {
+      case 0:  // p1 = (a11 + a22) * (b11 + b22)
+        AddMatrices(a11, a22, local_temp, half_size);
+        AddMatrices(b11, b22, local_temp2, half_size);
+        result = StrassenMultiply(local_temp, local_temp2, half_size);
+        break;
+      case 1:  // p2 = (a21 + a22) * b11
+        AddMatrices(a21, a22, local_temp, half_size);
+        result = StrassenMultiply(local_temp, b11, half_size);
+        break;
+      case 2:  // p3 = a11 * (b12 - b22)
+        SubtractMatrices(b12, b22, local_temp, half_size);
+        result = StrassenMultiply(a11, local_temp, half_size);
+        break;
+      case 3:  // p4 = a22 * (b21 - b11)
+        SubtractMatrices(b21, b11, local_temp, half_size);
+        result = StrassenMultiply(a22, local_temp, half_size);
+        break;
+      case 4:  // p5 = (a11 + a12) * b22
+        AddMatrices(a11, a12, local_temp, half_size);
+        result = StrassenMultiply(local_temp, b22, half_size);
+        break;
+      case 5:  // p6 = (a21 - a11) * (b11 + b12)
+        SubtractMatrices(a21, a11, local_temp, half_size);
+        AddMatrices(b11, b12, local_temp2, half_size);
+        result = StrassenMultiply(local_temp, local_temp2, half_size);
+        break;
+      case 6:  // p7 = (a12 - a22) * (b21 + b22)
+        SubtractMatrices(a12, a22, local_temp, half_size);
+        AddMatrices(b21, b22, local_temp2, half_size);
+        result = StrassenMultiply(local_temp, local_temp2, half_size);
+        break;
+    }
+    promise.set_value(result);
+  };
 
-  std::vector<double> p3 = p3_future.get();
-  std::vector<double> p4 = p4_future.get();
+  const std::size_t num_tasks = 7;  // Количество задач (p1–p7)
+  std::vector<std::future<std::vector<double>>> futures(num_tasks);
+  std::vector<std::thread> threads(std::min(num_tasks, static_cast<std::size_t>(num_threads)));
 
-  auto p5_future = std::async(std::launch::async,
-                              [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  auto p6_future = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  });
-  auto p7_future = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-  });
+  // Распределяем задачи по потокам
+  for (std::size_t i = 0; i < num_tasks; i += threads.size()) {
+    std::size_t current_batch_size = std::min(threads.size(), num_tasks - i);
+    for (std::size_t j = 0; j < current_batch_size; ++j) {
+      std::promise<std::vector<double>> promise;
+      futures[i + j] = promise.get_future();
+      threads[j] = std::thread(compute_task, i + j, std::move(promise));
+    }
+    std::ranges::for_each(threads.begin(), threads.begin() + current_batch_size, [](auto& thread) { thread.join(); });
+  }
 
-  std::vector<double> p5 = p5_future.get();
-  std::vector<double> p6 = p6_future.get();
-  std::vector<double> p7 = p7_future.get();
+  // Собираем результаты
+  std::vector<double> p1 = futures[0].get();
+  std::vector<double> p2 = futures[1].get();
+  std::vector<double> p3 = futures[2].get();
+  std::vector<double> p4 = futures[3].get();
+  std::vector<double> p5 = futures[4].get();
+  std::vector<double> p6 = futures[5].get();
+  std::vector<double> p7 = futures[6].get();
 
-  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+  // Вычисляем результирующие подматрицы
+  std::vector<double> c11(half_size_squared);
+  std::vector<double> c12(half_size_squared);
+  std::vector<double> c21(half_size_squared);
+  std::vector<double> c22(half_size_squared);
+
+  // c11 = p1 + p4 - p5 + p7
+  AddMatrices(p1, p4, temp, half_size);
+  SubtractMatrices(temp, p5, temp2, half_size);
+  AddMatrices(temp2, p7, c11, half_size);
+
+  // c12 = p3 + p5
+  AddMatrices(p3, p5, c12, half_size);
+
+  // c21 = p2 + p4
+  AddMatrices(p2, p4, c21, half_size);
+
+  // c22 = p1 + p3 - p2 + p6
+  AddMatrices(p1, p3, temp, half_size);
+  SubtractMatrices(temp, p2, temp2, half_size);
+  AddMatrices(temp2, p6, c22, half_size);
 
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
