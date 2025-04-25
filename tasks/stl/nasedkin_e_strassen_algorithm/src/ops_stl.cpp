@@ -152,7 +152,7 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   // Функция для выполнения задачи
   auto multiply_task = [&](size_t task_id, std::vector<double>& result) {
     if (task_id == 0) {
-      result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22,half_size), half_size);
+      result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
     } else if (task_id == 1) {
       result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
     } else if (task_id == 2) {
