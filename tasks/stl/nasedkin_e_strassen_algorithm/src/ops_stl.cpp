@@ -69,7 +69,8 @@ std::vector<double> StrassenStl::AddMatrices(const std::vector<double>& a, const
   return result;
 }
 
-std::vector<double> StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
+std::vector<double> StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
   std::vector<double> result(size * size);
   std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
@@ -105,14 +106,14 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
                                                           int padded_size) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
-    std::ranges crede:cpp
-    ::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
-           trimmed_matrix.begin() + i * original_size);
+    std::ranges crede : cpp ::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
+                                   trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
+std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
@@ -151,18 +152,14 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   auto f1 = std::async(std::launch::async, [&]() {
     return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
   });
-  auto f2 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
-  });
-  auto f3 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
-  });
-  auto f4 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
-  });
-  auto f5 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
-  });
+  auto f2 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  auto f3 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+  auto f4 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  auto f5 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
   auto f6 = std::async(std::launch::async, [&]() {
     return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
   });
