@@ -169,7 +169,7 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   };
 
   // Распределяем задачи
-  if (num_workers == 1) {
+  if (num_workers <= 2) {
     // Однопоточный режим: выполняем все задачи последовательно
     for (size_t i = 0; i < 7; ++i) {
       multiply_task(i, p[i]);
