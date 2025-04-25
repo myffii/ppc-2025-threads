@@ -146,10 +146,18 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   });
   auto p2_future = std::async(std::launch::async,
                               [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+
+  std::vector<double> p1 = p1_future.get();
+  std::vector<double> p2 = p2_future.get();
+
   auto p3_future = std::async(
       std::launch::async, [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
   auto p4_future = std::async(
       std::launch::async, [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+
+  std::vector<double> p3 = p3_future.get();
+  std::vector<double> p4 = p4_future.get();
+
   auto p5_future = std::async(std::launch::async,
                               [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
   auto p6_future = std::async(std::launch::async, [&]() {
@@ -159,10 +167,6 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
     return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
   });
 
-  std::vector<double> p1 = p1_future.get();
-  std::vector<double> p2 = p2_future.get();
-  std::vector<double> p3 = p3_future.get();
-  std::vector<double> p4 = p4_future.get();
   std::vector<double> p5 = p5_future.get();
   std::vector<double> p6 = p6_future.get();
   std::vector<double> p7 = p7_future.get();
