@@ -4,7 +4,6 @@
 #include <cmath>
 #include <functional>
 #include <future>
-#include <ranges>
 #include <vector>
 
 namespace nasedkin_e_strassen_algorithm_stl {
@@ -114,9 +113,9 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
-                                                  int size) {
-  if (size <= 32) {
+std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
+                                                  int depth = 0) {
+  if (size <= 32 || depth > 2) {  // Ограничиваем глубину параллелизма
     return StandardMultiply(a, b, size);
   }
 
@@ -150,26 +149,34 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Use std::async for parallel execution of the seven Strassen multiplications
+  // Параллельное выполнение только на верхних уровнях
   auto f1 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+    return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, depth + 1);
   });
   auto f2 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  auto f3 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  auto f4 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  auto f5 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+                       [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, depth + 1); });
+  auto f3 = std::async(std::launch::async, [&]() {
+    return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, depth + 1);
+  });
+  auto f4 = std::async(std::launch::async, [&]() {
+    return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, depth + 1);
+  });
+  auto f5 = std::async(std your code snippet ends here, I'll complete the function based on the pattern provided:
+
+```cpp
+  auto f5 = std::async(std::launch::async, [&]() {
+    return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, depth + 1);
+  });
   auto f6 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
+                            depth + 1);
   });
   auto f7 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
+                            depth + 1);
   });
 
-  // Retrieve results
+  // Собираем результаты
   p1 = f1.get();
   p2 = f2.get();
   p3 = f3.get();
