@@ -150,28 +150,26 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p7(half_size_squared);
 
   // Параллельное выполнение только на верхних уровнях
-  auto f1 = std::async(std::launch::async, [&]() {
+  auto f1 = std::async(std::launch::async, [&]() -> std::vector<double> {
     return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, depth + 1);
   });
-  auto f2 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, depth + 1); });
-  auto f3 = std::async(std::launch::async, [&]() {
+  auto f2 = std::async(std::launch::async, [&]() -> std::vector<double> {
+    return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, depth + 1);
+  });
+  auto f3 = std::async(std::launch::async, [&]() -> std::vector<double> {
     return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, depth + 1);
   });
-  auto f4 = std::async(std::launch::async, [&]() {
+  auto f4 = std::async(std::launch::async, [&]() -> std::vector<double> {
     return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, depth + 1);
   });
-  auto f5 = std::async(std your code snippet ends here, I'll complete the function based on the pattern provided:
-
-```cpp
-  auto f5 = std::async(std::launch::async, [&]() {
+  auto f5 = std::async(std::launch::async, [&]() -> std::vector<double> {
     return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, depth + 1);
   });
-  auto f6 = std::async(std::launch::async, [&]() {
+  auto f6 = std::async(std::launch::async, [&]() -> std::vector<double> {
     return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             depth + 1);
   });
-  auto f7 = std::async(std::launch::async, [&]() {
+  auto f7 = std::async(std::launch::async, [&]() -> std::vector<double> {
     return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                             depth + 1);
   });
