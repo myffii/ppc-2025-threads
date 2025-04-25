@@ -140,7 +140,7 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> temp(half_size_squared);   // Временный буфер для промежуточных результатов
+  std::vector<double> temp(half_size_squared);  // Временный буфер для промежуточных результатов
   std::vector<double> temp2(half_size_squared);  // Второй временный буфер
 
   // Определяем количество доступных ядер
