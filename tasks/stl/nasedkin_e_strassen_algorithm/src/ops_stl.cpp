@@ -6,6 +6,8 @@
 #include <future>
 #include <vector>
 
+#include "core/util/include/util.hpp"
+
 namespace nasedkin_e_strassen_algorithm_stl {
 
 bool StrassenStl::PreProcessingImpl() {
@@ -50,7 +52,7 @@ bool StrassenStl::ValidationImpl() {
 }
 
 bool StrassenStl::RunImpl() {
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, 0);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_);
   return true;
 }
 
@@ -113,9 +115,9 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                                  int depth) {
-  if (size <= 32 || depth > 2) {  // Ограничиваем глубину параллелизма
+std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
+  if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
 
@@ -141,52 +143,62 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
+  std::vector<std::vector<double>> p(7, std::vector<double>(half_size_squared));
 
-  // Параллельное выполнение только на верхних уровнях
-  auto f1 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, depth + 1);
-  });
-  auto f2 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, depth + 1);
-  });
-  auto f3 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, depth + 1);
-  });
-  auto f4 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, depth + 1);
-  });
-  auto f5 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, depth + 1);
-  });
-  auto f6 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                            depth + 1);
-  });
-  auto f7 = std::async(std::launch::async, [&]() -> std::vector<double> {
-    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                            depth + 1);
-  });
+  // Определяем число потоков
+  const std::size_t workers = ppc::util::GetPPCNumThreads();
+  const std::size_t num_workers = std::max<std::size_t>(1, std::min<std::size_t>(7, workers));  // Не более 7 задач
 
-  // Собираем результаты
-  p1 = f1.get();
-  p2 = f2.get();
-  p3 = f3.get();
-  p4 = f4.get();
-  p5 = f5.get();
-  p6 = f6.get();
-  p7 = f7.get();
+  // Функция для выполнения задачи
+  auto multiply_task = [&](size_t task_id, std::vector<double>& result) {
+    if (task_id == 0) {
+      result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22,half_size), half_size);
+    } else if (task_id == 1) {
+      result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
+    } else if (task_id == 2) {
+      result = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
+    } else if (task_id == 3) {
+      result = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
+    } else if (task_id == 4) {
+      result = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
+    } else if (task_id == 5) {
+      result = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+    } else if (task_id == 6) {
+      result = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+    }
+  };
 
-  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+  // Распределяем задачи
+  if (num_workers == 1) {
+    // Однопоточный режим: выполняем все задачи последовательно
+    for (size_t i = 0; i < 7; ++i) {
+      multiply_task(i, p[i]);
+    }
+  } else {
+    std::vector<std::thread> threads(num_workers);
+    const size_t tasks_per_worker = 7 / num_workers;
+    const size_t extra_tasks = 7 % num_workers;
+    size_t task_idx = 0;
+
+    for (size_t i = 0; i < num_workers; ++i) {
+      size_t num_tasks = tasks_per_worker + (i < extra_tasks ? 1 : 0);
+      threads[i] = std::thread([&, task_idx, num_tasks]() {
+        for (size_t j = 0; j < num_tasks; ++j) {
+          size_t task = task_idx + j;
+          multiply_task(task, p[task]);
+        }
+      });
+      task_idx += num_tasks;
+    }
+    std::ranges::for_each(threads, [](auto& thread) { thread.join(); });
+  }
+
+  std::vector<double> c11 =
+      AddMatrices(SubtractMatrices(AddMatrices(p[0], p[3], half_size), p[4], half_size), p[6], half_size);
+  std::vector<double> c12 = AddMatrices(p[2], p[4], half_size);
+  std::vector<double> c21 = AddMatrices(p[1], p[3], half_size);
+  std::vector<double> c22 =
+      AddMatrices(SubtractMatrices(AddMatrices(p[0], p[2], half_size), p[1], half_size), p[5], half_size);
 
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
