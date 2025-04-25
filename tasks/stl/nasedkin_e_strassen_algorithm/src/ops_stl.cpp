@@ -50,7 +50,7 @@ bool StrassenStl::ValidationImpl() {
 }
 
 bool StrassenStl::RunImpl() {
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, 0);
   return true;
 }
 
@@ -114,7 +114,7 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
 }
 
 std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                                  int depth = 0) {
+                                                  int depth) {
   if (size <= 32 || depth > 2) {  // Ограничиваем глубину параллелизма
     return StandardMultiply(a, b, size);
   }
