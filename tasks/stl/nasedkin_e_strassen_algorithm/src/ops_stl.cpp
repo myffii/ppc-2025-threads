@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <future>
 #include <vector>
 
@@ -106,7 +107,7 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
                                                           int padded_size) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
-    std::ranges crede : cpp ::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
+    std::ranges::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
                                    trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
