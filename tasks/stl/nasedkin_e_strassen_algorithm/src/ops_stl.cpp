@@ -2,10 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <functional>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "core/util/include/util.hpp"
@@ -126,15 +124,13 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   int half_size = size / 2;
   int half_size_squared = half_size * half_size;
 
-  std::vector<double> a11(half_size_squared);
-  std::vector<double> a12(half_size_squared);
-  std::vector<double> a21(half_size_squared);
-  std::vector<double> a22(half_size_squared);
-  std::vector<double> b11(half_size_squared);
-  std::vector<double> b12(half_size_squared);
-  std::vector<double> b21(half_size_squared);
-  std::vector<double> b22(half_size_squared);
+  // Выделяем память для подматриц
+  std::vector<double> a11(half_size_squared), a12(half_size_squared), a21(half_size_squared), a22(half_size_squared);
+  std::vector<double> b11(half_size_squared), b12(half_size_squared), b21(half_size_squared), b22(half_size_squared);
+  std::vector<double> p1(half_size_squared), p2(half_size_squared), p3(half_size_squared), p4(half_size_squared),
+      p5(half_size_squared), p6(half_size_squared), p7(half_size_squared);
 
+  // Разделяем матрицы
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
@@ -145,56 +141,48 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
+  // Получаем количество доступных потоков
+  const unsigned int kNumThreads = ppc::util::GetPPCNumThreads();
+  std::vector<std::thread> threads;
+  threads.reserve(7);  // Максимум 7 потоков для Strassen
 
-  // Получаем общее количество доступных потоков
-  static const unsigned int total_threads = ppc::util::GetPPCNumThreads();
-  static std::atomic<unsigned int> used_threads(0);
-
-  // Функция для запуска задачи в отдельном потоке или последовательно
-  auto run_parallel = [&](auto&& task) {
-    if (used_threads < total_threads) {
-      used_threads++;
-      std::thread t([&] {
-        task();
-        used_threads--;
-      });
-      t.detach();
+  // Функция для запуска задачи в потоке
+  auto launch_thread = [&](auto&& task) {
+    if (threads.size() < kNumThreads) {
+      threads.emplace_back(task);
     } else {
-      task();  // Выполняем последовательно, если нет свободных потоков
+      task();  // Если нет свободных потоков, выполняем последовательно
     }
   };
 
-  // Запускаем все 7 частей алгоритма Штрассена
-  run_parallel(
+  // Запускаем вычисления
+  launch_thread(
       [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
-  run_parallel([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  run_parallel([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  run_parallel([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  run_parallel([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  run_parallel([&]() {
+  launch_thread([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  launch_thread([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+  launch_thread([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  launch_thread([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+  launch_thread([&]() {
     p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
   });
-  run_parallel([&]() {
+  launch_thread([&]() {
     p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
   });
 
-  // Ожидаем завершения всех задач
-  while (used_threads > 0) {
-    std::this_thread::yield();
+  // Дожидаемся завершения всех потоков
+  for (auto& thread : threads) {
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
 
+  // Вычисляем результирующие подматрицы
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
+  // Собираем результат
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
   MergeMatrix(result, c12, 0, half_size, size);
