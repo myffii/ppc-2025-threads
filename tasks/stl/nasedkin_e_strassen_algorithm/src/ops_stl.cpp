@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
+#include <utility>
 #include <future>
 #include <thread>
 #include <vector>
