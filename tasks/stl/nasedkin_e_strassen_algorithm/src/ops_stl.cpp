@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <future>
 #include <thread>
 #include <vector>
 
@@ -151,44 +152,47 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Получаем количество потоков из ppc::util
-  unsigned int max_threads = ppc::util::GetPPCNumThreads();
-  std::vector<std::thread> threads;
+  // Получаем количество потоков
+  const unsigned int workers = ppc::util::GetPPCNumThreads();
+  std::vector<std::future<void>> futures(workers);
+  std::vector<std::thread> threads(workers);
 
-  // Функции для выполнения рекурсивных вызовов
-  auto compute_p1 = [&]() {
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
-  };
-  auto compute_p2 = [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); };
-  auto compute_p3 = [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); };
-  auto compute_p4 = [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); };
-  auto compute_p5 = [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); };
-  auto compute_p6 = [&]() {
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  };
-  auto compute_p7 = [&]() {
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-  };
+  // Разделяем 7 задач между workers потоками
+  const std::vector<std::function<void()>> tasks = {
+      [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
+      [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); },
+      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); },
+      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); },
+      [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); },
+      [&]() {
+        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+      },
+      [&]() {
+        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+      }};
 
-  // Запускаем задачи в потоках, ограничивая их количество
-  std::vector<std::function<void()>> tasks = {compute_p1, compute_p2, compute_p3, compute_p4,
-                                              compute_p5, compute_p6, compute_p7};
-  for (size_t i = 0; i < tasks.size(); ++i) {
-    if (threads.size() < max_threads) {
-      threads.emplace_back(tasks[i]);
-    } else {
-      for (auto& t : threads) {
-        if (t.joinable()) t.join();
+  const std::size_t tasks_count = tasks.size();
+  const std::size_t amount = tasks_count / workers;
+  const std::size_t threshold = tasks_count % workers;
+
+  for (std::size_t i = 0; i < workers; ++i) {
+    const std::size_t assigned_tasks = amount + ((i < threshold) ? 1 : 0);
+    std::promise<void> promise;
+    futures[i] = promise.get_future();
+    threads[i] = std::thread([&, i, assigned_tasks, promise = std::move(promise)]() mutable {
+      // Выполняем назначенные задачи
+      std::size_t start_task = i * amount + std::min(i, threshold);
+      std::size_t end_task = start_task + assigned_tasks;
+      for (std::size_t j = start_task; j < end_task && j < tasks_count; ++j) {
+        tasks[j]();
       }
-      threads.clear();
-      threads.emplace_back(tasks[i]);
-    }
+      promise.set_value();
+    });
   }
 
   // Дожидаемся завершения всех потоков
-  for (auto& t : threads) {
-    if (t.joinable()) t.join();
-  }
+  std::ranges::for_each(threads, [](auto& thread) { thread.join(); });
+  std::ranges::for_each(futures, [](auto& future) { future.get(); });
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
@@ -203,7 +207,6 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
 
   return result;
 }
-
 void StrassenStl::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
