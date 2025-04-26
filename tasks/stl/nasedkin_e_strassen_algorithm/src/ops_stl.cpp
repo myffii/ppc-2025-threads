@@ -2,10 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <functional>
 #include <thread>
 #include <vector>
+
+#include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_stl {
 
@@ -150,10 +151,8 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Получаем количество потоков из переменной окружения NUM_THREADS
-  const char* num_threads_env = std::getenv("NUM_THREADS");
-  int num_threads = num_threads_env ? std::atoi(num_threads_env) : 4;
-  num_threads = std::max(1, std::min(16, num_threads));  // Ограничиваем от 1 до 16
+  // Получаем количество потоков с помощью ppc::util::GetPPCNumThreads()
+  int num_threads = ppc::util::GetPPCNumThreads();
 
   std::vector<std::thread> threads;
   threads.reserve(7);  // 7 подзадач для Strassen
