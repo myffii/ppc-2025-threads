@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
-#include <future>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -154,47 +153,35 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Получаем количество потоков
-  const unsigned int workers = ppc::util::GetPPCNumThreads();
-  std::vector<std::future<void>> futures(workers);
-  std::vector<std::thread> threads(workers);
+  unsigned int num_threads = ppc::util::GetPPCNumThreads();
+  std::vector<std::thread> threads;
 
-  // Разделяем 7 задач между workers потоками
-  const std::vector<std::function<void()>> tasks = {
-      [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
-      [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); },
-      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); },
-      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); },
-      [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); },
-      [&]() {
-        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-      },
-      [&]() {
-        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-      }};
+  auto run_in_thread = [&](auto&& func) {
+    if (threads.size() < num_threads) {
+      threads.emplace_back(func);
+    } else {
+      func();  // Run sequentially if no more threads available
+    }
+  };
 
-  const std::size_t tasks_count = tasks.size();
-  const std::size_t amount = tasks_count / workers;
-  const std::size_t threshold = tasks_count % workers;
+  run_in_thread(
+      [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
+  run_in_thread([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  run_in_thread([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+  run_in_thread([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  run_in_thread([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+  run_in_thread([&]() {
+    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  });
+  run_in_thread([&]() {
+    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+  });
 
-  for (std::size_t i = 0; i < workers; ++i) {
-    const std::size_t assigned_tasks = amount + ((i < threshold) ? 1 : 0);
-    std::promise<void> promise;
-    futures[i] = promise.get_future();
-    threads[i] = std::thread([&, i, assigned_tasks, promise = std::move(promise)]() mutable {
-      // Выполняем назначенные задачи
-      std::size_t start_task = (i * amount) + std::min(i, threshold);
-      std::size_t end_task = start_task + assigned_tasks;
-      for (std::size_t j = start_task; j < end_task && j < tasks_count; ++j) {
-        tasks[j]();
-      }
-      promise.set_value();
-    });
+  for (auto& thread : threads) {
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
-
-  // Дожидаемся завершения всех потоков
-  std::ranges::for_each(threads, [](auto& thread) { thread.join(); });
-  std::ranges::for_each(futures, [](auto& future) { future.get(); });
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
@@ -209,6 +196,7 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
 
   return result;
 }
+
 void StrassenStl::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
