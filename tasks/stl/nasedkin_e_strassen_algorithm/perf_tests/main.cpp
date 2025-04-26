@@ -9,7 +9,7 @@
 
 #include "core/perf/include/perf.hpp"
 #include "core/task/include/task.hpp"
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
+#include "tbb/nasedkin_e_strassen_algorithm/include/ops_tbb.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(size_t size) {
@@ -24,13 +24,13 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 }
 }  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_stl, test_pipeline_run) {
+TEST(nasedkin_e_strassen_algorithm_tbb, test_pipeline_run) {
   constexpr size_t kMatrixSize = 512;
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_stl::StandardMultiply(in_a, in_b, kMatrixSize);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_tbb::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -40,7 +40,7 @@ TEST(nasedkin_e_strassen_algorithm_stl, test_pipeline_run) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_stl::StrassenStl>(task_data);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_tbb::StrassenTbb>(task_data);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
   perf_attr->num_running = 10;
@@ -61,13 +61,13 @@ TEST(nasedkin_e_strassen_algorithm_stl, test_pipeline_run) {
   }
 }
 
-TEST(nasedkin_e_strassen_algorithm_stl, test_task_run) {
+TEST(nasedkin_e_strassen_algorithm_tbb, test_task_run) {
   constexpr size_t kMatrixSize = 512;
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_stl::StandardMultiply(in_a, in_b, kMatrixSize);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_tbb::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -77,7 +77,7 @@ TEST(nasedkin_e_strassen_algorithm_stl, test_task_run) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_stl::StrassenStl>(task_data);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_tbb::StrassenTbb>(task_data);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
   perf_attr->num_running = 10;

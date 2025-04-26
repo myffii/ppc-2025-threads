@@ -2,8 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <functional>
-#include <future>
+#include <thread>
 #include <vector>
 
 namespace nasedkin_e_strassen_algorithm_stl {
@@ -108,7 +109,7 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
     std::ranges::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
-                                   trimmed_matrix.begin() + i * original_size);
+                      trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
 }
@@ -149,33 +150,76 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Use std::async for parallel execution of the seven Strassen multiplications
-  auto f1 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
-  });
-  auto f2 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  auto f3 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  auto f4 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  auto f5 = std::async(std::launch::async,
-                       [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  auto f6 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  });
-  auto f7 = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-  });
+  // Получаем количество потоков из переменной окружения NUM_THREADS
+  const char* num_threads_env = std::getenv("NUM_THREADS");
+  int num_threads = num_threads_env ? std::atoi(num_threads_env) : 4;
+  num_threads = std::max(1, std::min(16, num_threads));  // Ограничиваем от 1 до 16
 
-  // Retrieve results
-  p1 = f1.get();
-  p2 = f2.get();
-  p3 = f3.get();
-  p4 = f4.get();
-  p5 = f5.get();
-  p6 = f6.get();
-  p7 = f7.get();
+  std::vector<std::thread> threads;
+  threads.reserve(7);  // 7 подзадач для Strassen
+
+  // Запускаем задачи в потоках
+  if (num_threads >= 7) {
+    threads.emplace_back([&]() {
+      p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+    });
+    threads.emplace_back([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+    threads.emplace_back([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+    threads.emplace_back([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+    threads.emplace_back([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+    threads.emplace_back([&]() {
+      p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+    });
+    threads.emplace_back([&]() {
+      p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+    });
+  } else {
+    // Если потоков меньше 7, распределяем задачи по доступным потокам
+    auto run_task = [&](int start, int end) {
+      for (int i = start; i < end; ++i) {
+        switch (i) {
+          case 0:
+            p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+            break;
+          case 1:
+            p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
+            break;
+          case 2:
+            p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
+            break;
+          case 3:
+            p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
+            break;
+          case 4:
+            p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
+            break;
+          case 5:
+            p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+            break;
+          case 6:
+            p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+            break;
+        }
+      }
+    };
+
+    int tasks_per_thread = 7 / num_threads;
+    int extra_tasks = 7 % num_threads;
+
+    int current_task = 0;
+    for (int i = 0; i < num_threads; ++i) {
+      int tasks = tasks_per_thread + (i < extra_tasks ? 1 : 0);
+      int start = current_task;
+      int end = start + tasks;
+      threads.emplace_back(run_task, start, end);
+      current_task = end;
+    }
+  }
+
+  // Ожидаем завершения всех потоков
+  for (auto& thread : threads) {
+    thread.join();
+  }
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
