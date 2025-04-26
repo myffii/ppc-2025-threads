@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <functional>
 #include <future>
 #include <vector>
 
@@ -17,8 +16,8 @@ bool StrassenStl::PreProcessingImpl() {
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
   input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
-  std::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
-  std::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
+  std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
+  std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
 
   if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
     original_size_ = matrix_size_;
@@ -97,8 +96,8 @@ std::vector<double> StrassenStl::PadMatrixToPowerOfTwo(const std::vector<double>
 
   std::vector<double> padded_matrix(new_size * new_size, 0);
   for (int i = 0; i < original_size; ++i) {
-    std::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
-              padded_matrix.begin() + i * new_size);
+    std::ranges::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
+                      padded_matrix.begin() + i * new_size);
   }
   return padded_matrix;
 }
@@ -107,8 +106,8 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
                                                           int padded_size) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
-    std::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
-              trimmed_matrix.begin() + i * original_size);
+    std::ranges crede : cpp ::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
+                                   trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
 }
@@ -141,31 +140,41 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  auto p1_future = std::async(std::launch::async, [&]() {
+  std::vector<double> p1(half_size_squared);
+  std::vector<double> p2(half_size_squared);
+  std::vector<double> p3(half_size_squared);
+  std::vector<double> p4(half_size_squared);
+  std::vector<double> p5(half_size_squared);
+  std::vector<double> p6(half_size_squared);
+  std::vector<double> p7(half_size_squared);
+
+  // Use std::async for parallel execution of the seven Strassen multiplications
+  auto f1 = std::async(std::launch::async, [&]() {
     return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
   });
-  auto p2_future = std::async(std::launch::async,
-                              [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  auto p3_future = std::async(
-      std::launch::async, [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  auto p4_future = std::async(
-      std::launch::async, [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  auto p5_future = std::async(std::launch::async,
-                              [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  auto p6_future = std::async(std::launch::async, [&]() {
+  auto f2 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  auto f3 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+  auto f4 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  auto f5 = std::async(std::launch::async,
+                       [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+  auto f6 = std::async(std::launch::async, [&]() {
     return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
   });
-  auto p7_future = std::async(std::launch::async, [&]() {
+  auto f7 = std::async(std::launch::async, [&]() {
     return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
   });
 
-  std::vector<double> p1 = p1_future.get();
-  std::vector<double> p2 = p2_future.get();
-  std::vector<double> p3 = p3_future.get();
-  std::vector<double> p4 = p4_future.get();
-  std::vector<double> p5 = p5_future.get();
-  std::vector<double> p6 = p6_future.get();
-  std::vector<double> p7 = p7_future.get();
+  // Retrieve results
+  p1 = f1.get();
+  p2 = f2.get();
+  p3 = f3.get();
+  p4 = f4.get();
+  p5 = f5.get();
+  p6 = f6.get();
+  p7 = f7.get();
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
@@ -185,8 +194,9 @@ void StrassenStl::SplitMatrix(const std::vector<double>& parent, std::vector<dou
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::copy(parent.begin() + (row_start + i) * parent_size + col_start,
-              parent.begin() + (row_start + i) * parent_size + col_start + child_size, child.begin() + i * child_size);
+    std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
+                      parent.begin() + (row_start + i) * parent_size + col_start + child_size,
+                      child.begin() + i * child_size);
   }
 }
 
@@ -194,8 +204,8 @@ void StrassenStl::MergeMatrix(std::vector<double>& parent, const std::vector<dou
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
-              parent.begin() + (row_start + i) * parent_size + col_start);
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
+                      parent.begin() + (row_start + i) * parent_size + col_start);
   }
 }
 
