@@ -4,9 +4,9 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
-#include <utility>
 #include <future>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "core/util/include/util.hpp"
@@ -183,7 +183,7 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
     futures[i] = promise.get_future();
     threads[i] = std::thread([&, i, assigned_tasks, promise = std::move(promise)]() mutable {
       // Выполняем назначенные задачи
-      std::size_t start_task = i * amount + std::min(i, threshold);
+      std::size_t start_task = (i * amount) + std::min(i, threshold);
       std::size_t end_task = start_task + assigned_tasks;
       for (std::size_t j = start_task; j < end_task && j < tasks_count; ++j) {
         tasks[j]();
