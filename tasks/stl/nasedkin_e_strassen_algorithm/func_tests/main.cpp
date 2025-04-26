@@ -71,9 +71,7 @@ void RunFixedMatrixTest(int size) {
   nasedkin_e_strassen_algorithm_stl::StrassenStl strassen_task(task_data);
   ASSERT_TRUE(strassen_task.Validation());
   strassen_task.PreProcessing();
-  strassen_task
-
-      .Run();
+  strassen_task.Run();
   strassen_task.PostProcessing();
 
   for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
@@ -165,3 +163,7 @@ TEST(nasedkin_e_strassen_algorithm_stl, test_matrix_64x64_random) { RunRandomMat
 TEST(nasedkin_e_strassen_algorithm_stl, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
 
 TEST(nasedkin_e_strassen_algorithm_stl, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
+
+TEST(nasedkin_e_strassen_algorithm_stl, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
+
+TEST(nasedkin_e_strassen_algorithm_stl, test_matrix_256x256_random) { RunRandomMatrixTest(256); }
