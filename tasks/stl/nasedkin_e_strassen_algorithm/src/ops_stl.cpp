@@ -198,6 +198,8 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
           case 6:
             p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
             break;
+          default:
+            break;
         }
       }
     };
