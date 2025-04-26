@@ -4,7 +4,6 @@
 #include <cmath>
 #include <functional>
 #include <future>
-#include <memory>
 #include <thread>
 #include <vector>
 
@@ -145,35 +144,67 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<std::future<std::vector<double>>> futures(7);
-  futures[0] = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
-  });
-  futures[1] = std::async(std::launch::async,
-                          [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  futures[2] = std::async(std::launch::async,
-                          [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  futures[3] = std::async(std::launch::async,
-                          [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  futures[4] = std::async(std::launch::async,
-                          [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  futures[5] = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  });
-  futures[6] = std::async(std::launch::async, [&]() {
-    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-  });
+  std::vector<double> p1(half_size_squared);
+  std::vector<double> p2(half_size_squared);
+  std::vector<double> p3(half_size_squared);
+  std::vector<double> p4(half_size_squared);
+  std::vector<double> p5(half_size_squared);
+  std::vector<double> p6(half_size_squared);
+  std::vector<double> p7(half_size_squared);
 
-  std::vector<double> p1 = futures[0].get();
-  std::vector<double> p2 = futures[1].get();
-  std::vector<double> p3 = futures[2].get();
-  std::vector<double> p4 = futures[3].get();
-  std::vector<double> p5 = futures[4].get();
-  std::vector<double> p6 = futures[5].get();
-  std::vector<double> p7 = futures[6].get();
+  // Параллелизация с использованием std::thread
+  const size_t workers = std::min<size_t>(7, ppc::util::GetPPCNumThreads());
+  std::vector<std::future<void>> futures(workers);
+  std::vector<std::thread> threads(workers);
+
+  auto compute_p1 = [&]() {
+    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+  };
+  auto compute_p2 = [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); };
+  auto compute_p3 = [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); };
+  auto compute_p4 = [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); };
+  auto compute_p5 = [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); };
+  auto compute_p6 = [&]() {
+    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  };
+  auto compute_p7 = [&]() {
+    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+  };
+
+  if (workers == 1) {
+    // Последовательное выполнение для одного потока
+    compute_p1();
+    compute_p2();
+    compute_p3();
+    compute_p4();
+    compute_p5();
+    compute_p6();
+    compute_p7();
+  } else {
+    // Параллельное выполнение
+    std::vector<std::function<void()>> tasks = {compute_p1, compute_p2, compute_p3, compute_p4,
+                                                compute_p5, compute_p6, compute_p7};
+    for (size_t i = 0; i < workers; ++i) {
+      std::promise<void> promise;
+      futures[i] = promise.get_future();
+      threads[i] = std::thread([&, i, promise = std::move(promise)]() mutable {
+        tasks[i]();
+        promise.set_value();
+      });
+    }
+    // Ожидание завершения всех потоков
+    for (auto& thread : threads) {
+      if (thread.joinable()) {
+        thread.join();
+      }
+    }
+    // Выполнение оставшихся задач последовательно
+    for (size_t i = workers; i < tasks.size(); ++i) {
+      tasks[i]();
+    }
+  }
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  c11 = AddMatrices(c11, p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
