@@ -1,13 +1,59 @@
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <functional>
 #include <future>
 
 #include "core/util/include/util.hpp"
+#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
 
 namespace nasedkin_e_strassen_algorithm_stl {
+
+ThreadPool::ThreadPool(size_t num_threads) : stop_(false) {
+  for (size_t i = 0; i < num_threads; ++i) {
+    workers_.emplace_back([this]() {
+      while (true) {
+        std::function<void()> task;
+        {
+          std::unique_lock lock(this->queue_mutex_);
+          this->condition_.wait(lock, [this]() { return this->stop_ || !this->tasks_.empty(); });
+          if (this->stop_ && this->tasks_.empty()) return;
+          task = std::move(this->tasks_.front());
+          this->tasks_.pop();
+        }
+        task();
+      }
+    });
+  }
+}
+
+void ThreadPool::Enqueue(std::function<void()> task) {
+  {
+    std::unique_lock lock(queue_mutex_);
+    tasks_.push(std::move(task));
+  }
+  condition_.notify_one();
+}
+
+void ThreadPool::Wait() {
+  while (true) {
+    {
+      std::unique_lock lock(queue_mutex_);
+      if (tasks_.empty()) break;
+    }
+    std::this_thread::yield();
+  }
+}
+
+ThreadPool::~ThreadPool() {
+  {
+    std::unique_lock lock(queue_mutex_);
+    stop_ = true;
+  }
+  condition_.notify_all();
+  for (auto& worker : workers_) {
+    worker.join();
+  }
+}
 
 bool StrassenStl::PreProcessingImpl() {
   unsigned int input_size = task_data->inputs_count[0];
@@ -31,7 +77,10 @@ bool StrassenStl::PreProcessingImpl() {
   }
 
   output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
-  num_threads_ = ppc::util::GetPPCNumThreads();
+
+  size_t num_threads = ppc::util::GetPPCNumThreads();
+  thread_pool_ = std::make_shared<ThreadPool>(num_threads);
+
   return true;
 }
 
@@ -40,9 +89,7 @@ bool StrassenStl::ValidationImpl() {
   unsigned int input_size_b = task_data->inputs_count[1];
   unsigned int output_size = task_data->outputs_count[0];
 
-  if (input_size_a == 0 || input_size_b == 0 || output_size == 0) {
-    return false;
-  }
+  if (input_size_a == 0 || input_size_b == 0 || output_size == 0) return false;
 
   int size_a = static_cast<int>(std::sqrt(input_size_a));
   int size_b = static_cast<int>(std::sqrt(input_size_b));
@@ -52,7 +99,8 @@ bool StrassenStl::ValidationImpl() {
 }
 
 bool StrassenStl::RunImpl() {
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads_);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_);
+  thread_pool_->Wait();
   return true;
 }
 
@@ -60,16 +108,9 @@ bool StrassenStl::PostProcessingImpl() {
   if (original_size_ != matrix_size_) {
     output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
   }
-
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
   std::ranges::copy(output_matrix_, out_ptr);
   return true;
-}
-
-std::vector<double> StrassenStl::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
-  std::vector<double> result(size * size);
-  std::ranges::transform(a, b, result.begin(), std::plus<>());
-  return result;
 }
 
 std::vector<double> StrassenStl::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
@@ -134,8 +175,14 @@ void StrassenStl::MergeMatrix(std::vector<double>& parent, const std::vector<dou
   }
 }
 
-std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                                  int num_threads) {
+std::vector<double> StrassenStl::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
+  std::vector<double> result(size * size);
+  std::ranges::transform(a, b, result.begin(), std::plus<>());
+  return result;
+}
+
+std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
@@ -162,46 +209,22 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
+  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
-  // Пул потоков через std::async
-  std::vector<std::future<void>> futures;
-  futures.reserve(7);
+  thread_pool_->Enqueue(
+      [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
+  thread_pool_->Enqueue([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  thread_pool_->Enqueue([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+  thread_pool_->Enqueue([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  thread_pool_->Enqueue([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+  thread_pool_->Enqueue([&]() {
+    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  });
+  thread_pool_->Enqueue([&]() {
+    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+  });
 
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
-  }));
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
-  }));
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
-  }));
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
-  }));
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
-  }));
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                          num_threads);
-  }));
-  futures.push_back(std::async(std::launch::async, [&]() {
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                          num_threads);
-  }));
-
-  // Ожидание завершения всех задач
-  for (auto& f : futures) {
-    f.wait();
-  }
+  thread_pool_->Wait();
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);

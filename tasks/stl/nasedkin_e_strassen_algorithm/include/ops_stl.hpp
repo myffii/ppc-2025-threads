@@ -1,6 +1,10 @@
 #pragma once
 
-#include <future>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <thread>
 #include <vector>
 
 #include "core/task/include/task.hpp"
@@ -8,6 +12,22 @@
 namespace nasedkin_e_strassen_algorithm_stl {
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
+
+class ThreadPool {
+ public:
+  explicit ThreadPool(size_t num_threads);
+  ~ThreadPool();
+
+  void Enqueue(std::function<void()> task);
+  void Wait();
+
+ private:
+  std::vector<std::thread> workers_;
+  std::queue<std::function<void()>> tasks_;
+  std::mutex queue_mutex_;
+  std::condition_variable condition_;
+  bool stop_;
+};
 
 class StrassenStl : public ppc::core::Task {
  public:
@@ -27,14 +47,14 @@ class StrassenStl : public ppc::core::Task {
   static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size);
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
                                                       int padded_size);
-  static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                              int num_threads);
+  std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
-  int num_threads_{};
+
+  std::shared_ptr<ThreadPool> thread_pool_;
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_stl
