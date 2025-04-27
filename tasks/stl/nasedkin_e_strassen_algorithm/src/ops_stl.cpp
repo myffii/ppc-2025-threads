@@ -117,7 +117,7 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
+std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
