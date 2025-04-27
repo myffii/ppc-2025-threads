@@ -203,6 +203,4 @@ void StrassenSequential::MergeMatrix(std::vector<double>& parent, const std::vec
   }
 }
 
-
-
 }  // namespace nasedkin_e_strassen_algorithm_stl
