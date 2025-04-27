@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <functional>
 #include <future>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -119,19 +119,22 @@ std::vector<double> StrassenStl::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
                                                   int size) {
-  // Базовый случай - используем стандартное умножение
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
 
-  const int half_size = size / 2;
-  const int tile_size = half_size * half_size;
+  int half_size = size / 2;
+  int half_size_squared = half_size * half_size;
 
-  // 1. Выделяем память для подматриц
-  std::vector<double> a11(tile_size), a12(tile_size), a21(tile_size), a22(tile_size);
-  std::vector<double> b11(tile_size), b12(tile_size), b21(tile_size), b22(tile_size);
+  std::vector<double> a11(half_size_squared);
+  std::vector<double> a12(half_size_squared);
+  std::vector<double> a21(half_size_squared);
+  std::vector<double> a22(half_size_squared);
+  std::vector<double> b11(half_size_squared);
+  std::vector<double> b12(half_size_squared);
+  std::vector<double> b21(half_size_squared);
+  std::vector<double> b22(half_size_squared);
 
-  // 2. Разделяем матрицы (последовательно для стабильности)
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
@@ -142,42 +145,66 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  // 3. Вычисляем промежуточные матрицы параллельно
-  auto compute_p = [&](auto&& func) { return std::async(std::launch::async, func); };
+  std::vector<std::future<std::vector<double>>> futures(7);
+  const size_t workers = ppc::util::GetPPCNumThreads();
 
-  auto p1 = compute_p(
-      [&] { return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
-  auto p2 = compute_p([&] { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  auto p3 = compute_p([&] { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  auto p4 = compute_p([&] { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  auto p5 = compute_p([&] { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  auto p6 = compute_p([&] {
-    return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  });
-  auto p7 = compute_p([&] {
-    return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-  });
+  if (workers > 1) {
+    // Parallel version
+    futures[0] = std::async(std::launch::async, [&]() {
+      return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+    });
+    futures[1] = std::async(std::launch::async,
+                            [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+    futures[2] = std::async(std::launch::async,
+                            [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+    futures[3] = std::async(std::launch::async,
+                            [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+    futures[4] = std::async(std::launch::async,
+                            [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+    futures[5] = std::async(std::launch::async, [&]() {
+      return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+    });
+    futures[6] = std::async(std::launch::async, [&]() {
+      return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+    });
 
-  // 4. Получаем результаты
-  auto p1_val = p1.get();
-  auto p2_val = p2.get();
-  auto p3_val = p3.get();
-  auto p4_val = p4.get();
-  auto p5_val = p5.get();
-  auto p6_val = p6.get();
-  auto p7_val = p7.get();
+    for (auto& future : futures) {
+      future.wait();
+    }
+  } else {
+    // Sequential version
+    futures[0] = std::async(std::launch::deferred, [&]() {
+      return StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+    });
+    futures[1] = std::async(std::launch::deferred,
+                            [&]() { return StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+    futures[2] = std::async(std::launch::deferred,
+                            [&]() { return StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+    futures[3] = std::async(std::launch::deferred,
+                            [&]() { return StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+    futures[4] = std::async(std::launch::deferred,
+                            [&]() { return StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+    futures[5] = std::async(std::launch::deferred, [&]() {
+      return StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+    });
+    futures[6] = std::async(std::launch::deferred, [&]() {
+      return StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+    });
+  }
 
-  // 5. Вычисляем итоговые блоки
-  auto c11 =
-      AddMatrices(SubtractMatrices(AddMatrices(p1_val, p4_val, half_size), p5_val, half_size), p7_val, half_size);
-  c11 = AddMatrices(c11, p7_val, half_size);
-  auto c12 = AddMatrices(p3_val, p5_val, half_size);
-  auto c21 = AddMatrices(p2_val, p4_val, half_size);
-  auto c22 =
-      AddMatrices(SubtractMatrices(AddMatrices(p1_val, p3_val, half_size), p2_val, half_size), p6_val, half_size);
-  c22 = AddMatrices(c22, p6_val, half_size);
+  std::vector<double> p1 = futures[0].get();
+  std::vector<double> p2 = futures[1].get();
+  std::vector<double> p3 = futures[2].get();
+  std::vector<double> p4 = futures[3].get();
+  std::vector<double> p5 = futures[4].get();
+  std::vector<double> p6 = futures[5].get();
+  std::vector<double> p7 = futures[6].get();
 
-  // 6. Собираем результат
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
   MergeMatrix(result, c12, 0, half_size, size);
