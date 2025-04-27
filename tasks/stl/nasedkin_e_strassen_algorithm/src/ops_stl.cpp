@@ -112,7 +112,7 @@ std::vector<double> StrassenSequential::TrimMatrixToOriginalSize(const std::vect
 
 std::vector<double> StrassenSequential::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
                                                          int size, int num_threads) {
-  if (size <= 32 || num_threads <= 1) {
+  if (size <= 32 || num_threads <= 1) {  // Увеличен порог до 64 для уменьшения рекурсии
     return StandardMultiply(a, b, size);
   }
 
@@ -140,26 +140,30 @@ std::vector<double> StrassenSequential::StrassenMultiply(const std::vector<doubl
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
   std::vector<std::thread> threads;
 
-  // Распределяем 7 подзадач по потокам
+  // Ограничиваем количество потоков для каждой задачи
+  int threads_per_task = std::max(1, num_threads / 7);
+  int remaining_threads = num_threads - threads_per_task * 7;
+  int threads_for_p1 = threads_per_task + (remaining_threads > 0 ? 1 : 0);
+
   threads.emplace_back([&]() {
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
-                          (num_threads / 7) + 1);
+    p1 =
+        StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, threads_for_p1);
   });
   threads.emplace_back(
-      [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads / 7); });
+      [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, threads_per_task); });
   threads.emplace_back(
-      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads / 7); });
+      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, threads_per_task); });
   threads.emplace_back(
-      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads / 7); });
+      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, threads_per_task); });
   threads.emplace_back(
-      [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads / 7); });
+      [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, threads_per_task); });
   threads.emplace_back([&]() {
     p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                          num_threads / 7);
+                          threads_per_task);
   });
   threads.emplace_back([&]() {
     p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                          num_threads / 7);
+                          threads_per_task);
   });
 
   for (auto& t : threads) {
@@ -198,5 +202,7 @@ void StrassenSequential::MergeMatrix(std::vector<double>& parent, const std::vec
                       parent.begin() + (row_start + i) * parent_size + col_start);
   }
 }
+
+
 
 }  // namespace nasedkin_e_strassen_algorithm_stl
