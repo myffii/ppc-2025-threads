@@ -168,23 +168,23 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   auto p7_val = p7.get();
 
   // 5. Вычисляем итоговые блоки
-    auto c11 =
+  auto c11 =
       AddMatrices(SubtractMatrices(AddMatrices(p1_val, p4_val, half_size), p5_val, half_size), p7_val, half_size);
-    c11 = AddMatrices(c11, p7_val, half_size);
-    auto c12 = AddMatrices(p3_val, p5_val, half_size);
-    auto c21 = AddMatrices(p2_val, p4_val, half_size);
-    auto c22 =
+  c11 = AddMatrices(c11, p7_val, half_size);
+  auto c12 = AddMatrices(p3_val, p5_val, half_size);
+  auto c21 = AddMatrices(p2_val, p4_val, half_size);
+  auto c22 =
       AddMatrices(SubtractMatrices(AddMatrices(p1_val, p3_val, half_size), p2_val, half_size), p6_val, half_size);
-    c22 = AddMatrices(c22, p6_val, half_size);
+  c22 = AddMatrices(c22, p6_val, half_size);
 
-    // 6. Собираем результат
-    std::vector<double> result(size * size);
-    MergeMatrix(result, c11, 0, 0, size);
-    MergeMatrix(result, c12, 0, half_size, size);
-    MergeMatrix(result, c21, half_size, 0, size);
-    MergeMatrix(result, c22, half_size, half_size, size);
+  // 6. Собираем результат
+  std::vector<double> result(size * size);
+  MergeMatrix(result, c11, 0, 0, size);
+  MergeMatrix(result, c12, 0, half_size, size);
+  MergeMatrix(result, c21, half_size, 0, size);
+  MergeMatrix(result, c22, half_size, half_size, size);
 
-    return result;
+  return result;
 }
 
 void StrassenStl::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
