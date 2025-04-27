@@ -1,10 +1,10 @@
+#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <functional>
 #include <thread>
 #include <vector>
-
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
 
 namespace nasedkin_e_strassen_algorithm_stl {
 
