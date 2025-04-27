@@ -143,7 +143,7 @@ std::vector<double> StrassenSequential::StrassenMultiply(const std::vector<doubl
   // Распределяем 7 подзадач по потокам
   threads.emplace_back([&]() {
     p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
-                          num_threads / 7 + 1);
+                          (num_threads / 7) + 1);
   });
   threads.emplace_back(
       [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads / 7); });
