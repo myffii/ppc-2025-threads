@@ -1,17 +1,17 @@
 #pragma once
 
+#include <future>
 #include <vector>
 
 #include "core/task/include/task.hpp"
-#include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_stl {
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
-class StrassenSequential : public ppc::core::Task {
+class StrassenStl : public ppc::core::Task {
  public:
-  explicit StrassenSequential(ppc::core::TaskDataPtr task_data) : Task(std::move(task_data)) {}
+  explicit StrassenStl(ppc::core::TaskDataPtr task_data) : Task(std::move(task_data)) {}
   bool PreProcessingImpl() override;
   bool ValidationImpl() override;
   bool RunImpl() override;
@@ -28,12 +28,13 @@ class StrassenSequential : public ppc::core::Task {
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                              int num_threads = ppc::util::GetPPCNumThreads());
+                                              int num_threads);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
+  int num_threads_{};
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_stl
