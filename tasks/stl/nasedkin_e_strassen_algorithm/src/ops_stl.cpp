@@ -210,22 +210,50 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<std::vector<double>> results(7);
 
-  thread_pool_->Enqueue(
-      [&]() { p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); });
-  thread_pool_->Enqueue([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
-  thread_pool_->Enqueue([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
-  thread_pool_->Enqueue([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
-  thread_pool_->Enqueue([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
-  thread_pool_->Enqueue([&]() {
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp1 = AddMatrices(a11, a22, half_size);
+    auto tmp2 = AddMatrices(b11, b22, half_size);
+    results[0] = StrassenMultiply(tmp1, tmp2, half_size);
   });
-  thread_pool_->Enqueue([&]() {
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp = AddMatrices(a21, a22, half_size);
+    results[1] = StrassenMultiply(tmp, b11, half_size);
+  });
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp = SubtractMatrices(b12, b22, half_size);
+    results[2] = StrassenMultiply(a11, tmp, half_size);
+  });
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp = SubtractMatrices(b21, b11, half_size);
+    results[3] = StrassenMultiply(a22, tmp, half_size);
+  });
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp = AddMatrices(a11, a12, half_size);
+    results[4] = StrassenMultiply(tmp, b22, half_size);
+  });
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp1 = SubtractMatrices(a21, a11, half_size);
+    auto tmp2 = AddMatrices(b11, b12, half_size);
+    results[5] = StrassenMultiply(tmp1, tmp2, half_size);
+  });
+  thread_pool_->Enqueue([&, this]() {
+    auto tmp1 = SubtractMatrices(a12, a22, half_size);
+    auto tmp2 = AddMatrices(b21, b22, half_size);
+    results[6] = StrassenMultiply(tmp1, tmp2, half_size);
   });
 
-  thread_pool_->Wait();
+  thread_pool_->Wait();  // дождались всех потоков
+
+  // Теперь results[0..6] содержат готовые данные
+  std::vector<double>& p1 = results[0];
+  std::vector<double>& p2 = results[1];
+  std::vector<double>& p3 = results[2];
+  std::vector<double>& p4 = results[3];
+  std::vector<double>& p5 = results[4];
+  std::vector<double>& p6 = results[5];
+  std::vector<double>& p7 = results[6];
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
