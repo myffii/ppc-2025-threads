@@ -168,13 +168,11 @@ std::vector<double> StrassenStl::StrassenMultiply(const std::vector<double>& a, 
   auto p7_val = p7.get();
 
   // 5. Вычисляем итоговые блоки
-    auto c11 = AddMatrices(SubtractMatrices(AddMatrices(p1_val, p4_val, half_size), p5_val, half_size), p7_val,
-                                     half_size);
+    auto c11 = AddMatrices(SubtractMatrices(AddMatrices(p1_val, p4_val, half_size), p5_val, half_size), p7_val, half_size);
     c11 = AddMatrices(c11, p7_val, half_size);
     auto c12 = AddMatrices(p3_val, p5_val, half_size);
     auto c21 = AddMatrices(p2_val, p4_val, half_size);
-    auto c22 = AddMatrices(SubtractMatrices(AddMatrices(p1_val, p3_val, half_size), p2_val, half_size), p6_val,
-                                     half_size);
+    auto c22 = AddMatrices(SubtractMatrices(AddMatrices(p1_val, p3_val, half_size), p2_val, half_size), p6_val, half_size);
     c22 = AddMatrices(c22, p6_val, half_size);
 
     // 6. Собираем результат
