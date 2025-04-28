@@ -53,7 +53,7 @@ bool StrassenStl::ValidationImpl() {
 }
 
 bool StrassenStl::RunImpl() {
-  int num_threads = std::min(16, static_cast<int>(ppc::util::GetPPCNumThreads()));
+  int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
   output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads);
   return true;
 }
