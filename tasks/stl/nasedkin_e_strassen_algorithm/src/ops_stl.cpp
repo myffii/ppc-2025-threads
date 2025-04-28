@@ -7,6 +7,8 @@
 #include <thread>
 #include <vector>
 
+#include "core/util/include/util.hpp"
+
 namespace nasedkin_e_strassen_algorithm_stl {
 
 bool StrassenStl::PreProcessingImpl() {
