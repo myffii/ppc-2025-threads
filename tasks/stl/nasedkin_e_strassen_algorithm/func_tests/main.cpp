@@ -1,5 +1,3 @@
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
-
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -8,6 +6,7 @@
 #include <vector>
 
 #include "core/task/include/task.hpp"
+#include "stl/nasedkin_e_strassen_algorithm/include/ops_stl.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(int size) {
