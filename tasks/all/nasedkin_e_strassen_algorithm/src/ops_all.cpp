@@ -230,62 +230,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6_out(half_size_squared, 0.0);
   std::vector<double> p7_out(half_size_squared, 0.0);
 
-  boost::mpi::reduce(
-      comm, p1, p1_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
-  boost::mpi::reduce(
-      comm, p2, p2_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
-  boost::mpi::reduce(
-      comm, p3, p3_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
-  boost::mpi::reduce(
-      comm, p4, p4_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
-  boost::mpi::reduce(
-      comm, p5, p5_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
-  boost::mpi::reduce(
-      comm, p6, p6_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
-  boost::mpi::reduce(
-      comm, p7, p7_out,
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-        std::vector<double> result(a.size());
-        std::ranges::transform(a, b, result.begin(), std::plus<>());
-        return result;
-      },
-      0);
+  boost::mpi::reduce(comm, p1.data(), p1.size(), p1_out.data(), std::plus<>{}, 0);
+  boost::mpi::reduce(comm, p2.data(), p2.size(), p2_out.data(), std::plus<>{}, 0);
+  boost::mpi::reduce(comm, p3.data(), p3.size(), p3_out.data(), std::plus<>{}, 0);
+  boost::mpi::reduce(comm, p4.data(), p4.size(), p4_out.data(), std::plus<>{}, 0);
+  boost::mpi::reduce(comm, p5.data(), p5.size(), p5_out.data(), std::plus<>{}, 0);
+  boost::mpi::reduce(comm, p6.data(), p6.size(), p6_out.data(), std::plus<>{}, 0);
+  boost::mpi::reduce(comm, p7.data(), p7.size(), p7_out.data(), std::plus<>{}, 0);
 
   std::vector<double> result(size * size, 0.0);
   if (rank == 0) {
