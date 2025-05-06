@@ -72,14 +72,14 @@ bool StrassenAll::PostProcessingImpl() {
   return true;
 }
 
-void StrassenAll::AddMatrices(std::vector<double>& result, const std::vector<double>& a,
-                                     const std::vector<double>& b, int size) {
+void StrassenAll::AddMatrices(std::vector<double>& result, const std::vector<double>& a, const std::vector<double>& b,
+                              int size) {
   result.resize(size * size);
   std::ranges::transform(a, b, result.begin(), std::plus<>());
 }
 
 void StrassenAll::SubtractMatrices(std::vector<double>& result, const std::vector<double>& a,
-                                          const std::vector<double>& b, int size) {
+                                   const std::vector<double>& b, int size) {
   result.resize(size * size);
   std::ranges::transform(a, b, result.begin(), std::minus<>());
 }
