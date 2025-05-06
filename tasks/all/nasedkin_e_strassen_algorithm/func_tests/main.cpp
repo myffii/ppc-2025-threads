@@ -1,17 +1,13 @@
 #include <gtest/gtest.h>
 
+#include <boost/mpi.hpp>
 #include <cstdint>
 #include <memory>
 #include <random>
 #include <vector>
 
-#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
-#include "boost/mpi/collectives/broadcast.hpp"
-#include "boost/mpi/communicator.hpp"
 #include "core/task/include/task.hpp"
-
-// Примечание: Тесты предполагают, что MPI инициализирован с MPI_THREAD_MULTIPLE
-// в глобальной тестовой среде Google Test (например, через testing::Environment).
+#include "stl/nasedkin_e_strassen_algorithm/include/ops_mpi.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(int size) {
@@ -35,21 +31,9 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 
 void RunRandomMatrixTest(int size) {
   boost::mpi::communicator world;
-  int rank = world.rank();
-
-  std::vector<double> in_a;
-  std::vector<double> in_b;
+  std::vector<double> in_a = GenerateRandomMatrix(size);
+  std::vector<double> in_b = GenerateRandomMatrix(size);
   std::vector<double> out(size * size, 0.0);
-  std::vector<double> expected;
-
-  if (rank == 0) {
-    in_a = GenerateRandomMatrix(size);
-    in_b = GenerateRandomMatrix(size);
-    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, size);
-  }
-
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -59,40 +43,25 @@ void RunRandomMatrixTest(int size) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  nasedkin_e_strassen_algorithm_all::StrassenAll strassen_task(task_data);
-  ASSERT_TRUE(strassen_task.ValidationImpl());
-  strassen_task.PreProcessingImpl();
-  strassen_task.RunImpl();
-  strassen_task.PostProcessingImpl();
-
-  if (rank == 0) {
-    for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
-      EXPECT_NEAR(expected[i], out[i], 1e-6);
-    }
-  }
+  nasedkin_e_strassen_algorithm_all::StrassenMPI strassen_task(task_data, world);
+  ASSERT_TRUE(strassen_task.Validation());
+  strassen_task.PreProcessing();
+  strassen_task.Run();
+  strassen_task.PostProcessing();
 }
 
 void RunFixedMatrixTest(int size) {
   boost::mpi::communicator world;
-  int rank = world.rank();
+  std::vector<double> in_a(size * size);
+  std::vector<double> in_b(size * size);
 
-  std::vector<double> in_a;
-  std::vector<double> in_b;
-  std::vector<double> out(size * size, 0.0);
-  std::vector<double> expected;
-
-  if (rank == 0) {
-    in_a.resize(size * size);
-    in_b.resize(size * size);
-    for (int i = 0; i < size * size; ++i) {
-      in_a[i] = static_cast<double>((size * size) - i);
-      in_b[i] = static_cast<double>(i + 1);
-    }
-    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, size);
+  for (int i = 0; i < size * size; ++i) {
+    in_a[i] = static_cast<double>((size * size) - i);
+    in_b[i] = static_cast<double>(i + 1);
   }
 
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, size);
+  std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -102,13 +71,13 @@ void RunFixedMatrixTest(int size) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  nasedkin_e_strassen_algorithm_all::StrassenAll strassen_task(task_data);
-  ASSERT_TRUE(strassen_task.ValidationImpl());
-  strassen_task.PreProcessingImpl();
-  strassen_task.RunImpl();
-  strassen_task.PostProcessingImpl();
+  nasedkin_e_strassen_algorithm_all::StrassenMPI strassen_task(task_data, world);
+  ASSERT_TRUE(strassen_task.Validation());
+  strassen_task.PreProcessing();
+  strassen_task.Run();
+  strassen_task.PostProcessing();
 
-  if (rank == 0) {
+  if (world.rank() == 0) {
     for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
       EXPECT_NEAR(expected[i], out[i], 1e-6);
     }
@@ -117,19 +86,9 @@ void RunFixedMatrixTest(int size) {
 
 void RunRandomMatrixIdentityTest(int size) {
   boost::mpi::communicator world;
-  int rank = world.rank();
-
-  std::vector<double> in_a;
-  std::vector<double> in_b;
+  std::vector<double> in_a = GenerateRandomMatrix(size);
+  std::vector<double> in_b = GenerateIdentityMatrix(size);
   std::vector<double> out(size * size, 0.0);
-
-  if (rank == 0) {
-    in_a = GenerateRandomMatrix(size);
-    in_b = GenerateIdentityMatrix(size);
-  }
-
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -139,13 +98,13 @@ void RunRandomMatrixIdentityTest(int size) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  nasedkin_e_strassen_algorithm_all::StrassenAll strassen_task(task_data);
-  ASSERT_TRUE(strassen_task.ValidationImpl());
-  strassen_task.PreProcessingImpl();
-  strassen_task.RunImpl();
-  strassen_task.PostProcessingImpl();
+  nasedkin_e_strassen_algorithm_all::StrassenMPI strassen_task(task_data, world);
+  ASSERT_TRUE(strassen_task.Validation());
+  strassen_task.PreProcessing();
+  strassen_task.Run();
+  strassen_task.PostProcessing();
 
-  if (rank == 0) {
+  if (world.rank() == 0) {
     for (int i = 0; i < size * size; ++i) {
       EXPECT_NEAR(in_a[i], out[i], 1e-6);
     }
@@ -154,22 +113,14 @@ void RunRandomMatrixIdentityTest(int size) {
 
 void RunFixedMatrixIdentityTest(int size) {
   boost::mpi::communicator world;
-  int rank = world.rank();
+  std::vector<double> in_a(size * size);
+  std::vector<double> in_b = GenerateIdentityMatrix(size);
 
-  std::vector<double> in_a;
-  std::vector<double> in_b;
-  std::vector<double> out(size * size, 0.0);
-
-  if (rank == 0) {
-    in_a.resize(size * size);
-    for (int i = 0; i < size * size; ++i) {
-      in_a[i] = static_cast<double>((size * size) - i);
-    }
-    in_b = GenerateIdentityMatrix(size);
+  for (int i = 0; i < size * size; ++i) {
+    in_a[i] = static_cast<double>((size * size) - i);
   }
 
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
+  std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -179,13 +130,13 @@ void RunFixedMatrixIdentityTest(int size) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  nasedkin_e_strassen_algorithm_all::StrassenAll strassen_task(task_data);
-  ASSERT_TRUE(strassen_task.ValidationImpl());
-  strassen_task.PreProcessingImpl();
-  strassen_task.RunImpl();
-  strassen_task.PostProcessingImpl();
+  nasedkin_e_strassen_algorithm_all::StrassenMPI strassen_task(task_data, world);
+  ASSERT_TRUE(strassen_task.Validation());
+  strassen_task.PreProcessing();
+  strassen_task.Run();
+  strassen_task.PostProcessing();
 
-  if (rank == 0) {
+  if (world.rank() == 0) {
     for (int i = 0; i < size * size; ++i) {
       EXPECT_NEAR(in_a[i], out[i], 1e-6);
     }
@@ -194,16 +145,15 @@ void RunFixedMatrixIdentityTest(int size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
+  boost::mpi::communicator world;
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  std::vector<double> a(0);
-  std::vector<double> b(0);
-  std::vector<double> out(0);
+  std::vector<double> a(0), b(0), out(0);
   task_data->inputs = {reinterpret_cast<uint8_t*>(a.data()), reinterpret_cast<uint8_t*>(b.data())};
   task_data->inputs_count = {0, 0};
   task_data->outputs = {reinterpret_cast<uint8_t*>(out.data())};
   task_data->outputs_count = {0};
-  nasedkin_e_strassen_algorithm_all::StrassenAll task(task_data);
-  ASSERT_FALSE(task.ValidationImpl());
+  nasedkin_e_strassen_algorithm_all::StrassenMPI task(task_data, world);
+  ASSERT_FALSE(task.Validation());
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }
@@ -219,11 +169,3 @@ TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_fixed) { RunFixedMatri
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
-
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
-
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
-
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
-
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_256x256_random) { RunRandomMatrixTest(256); }

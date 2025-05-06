@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/mpi.hpp>
-#include <boost/serialization/vector.hpp>
 #include <utility>
 #include <vector>
 
@@ -11,9 +10,10 @@ namespace nasedkin_e_strassen_algorithm_all {
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
-class StrassenAll : public ppc::core::Task {
+class StrassenMPI : public ppc::core::Task {
  public:
-  explicit StrassenAll(ppc::core::TaskDataPtr task_data) : Task(std::move(task_data)) {}
+  explicit StrassenMPI(ppc::core::TaskDataPtr task_data, boost::mpi::communicator world = boost::mpi::communicator())
+      : Task(std::move(task_data)), world_(world) {}
   bool PreProcessingImpl() override;
   bool ValidationImpl() override;
   bool RunImpl() override;
@@ -30,12 +30,13 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                              int num_threads, boost::mpi::communicator& comm);
+                                              int num_threads, boost::mpi::communicator& world);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
+  boost::mpi::communicator world_;
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_all
