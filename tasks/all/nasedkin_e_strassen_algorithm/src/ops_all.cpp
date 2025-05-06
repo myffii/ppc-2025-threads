@@ -1,12 +1,12 @@
-#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
-
 #include <algorithm>
 #include <boost/mpi.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
 #include <thread>
 #include <vector>
 
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
@@ -169,29 +169,29 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Распределение задач P1-P7 между процессами
   std::vector<std::function<void()>> tasks;
-  if (rank == 0)
+  if (rank % num_processes == 0)
     tasks.emplace_back([&]() {
       p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads,
                             comm);
     });
-  if (rank == 1 % num_processes)
+  if (rank % num_processes == 1)
     tasks.emplace_back(
         [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads, comm); });
-  if (rank == 2 % num_processes)
+  if (rank % num_processes == 2)
     tasks.emplace_back(
         [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads, comm); });
-  if (rank == 3 % num_processes)
+  if (rank % num_processes == 3)
     tasks.emplace_back(
         [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads, comm); });
-  if (rank == 4 % num_processes)
+  if (rank % num_processes == 4)
     tasks.emplace_back(
         [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads, comm); });
-  if (rank == 5 % num_processes)
+  if (rank % num_processes == 5)
     tasks.emplace_back([&]() {
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads, comm);
     });
-  if (rank == 6 % num_processes)
+  if (rank % num_processes == 6)
     tasks.emplace_back([&]() {
       p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                             num_threads, comm);
@@ -221,22 +221,79 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Сбор результатов P1-P7 на процессе 0
-  boost::mpi::reduce(comm, p1, p1, std::plus<>(), 0);
-  boost::mpi::reduce(comm, p2, p2, std::plus<>(), 0);
-  boost::mpi::reduce(comm, p3, p3, std::plus<>(), 0);
-  boost::mpi::reduce(comm, p4, p4, std::plus<>(), 0);
-  boost::mpi::reduce(comm, p5, p5, std::plus<>(), 0);
-  boost::mpi::reduce(comm, p6, p6, std::plus<>(), 0);
-  boost::mpi::reduce(comm, p7, p7, std::plus<>(), 0);
+  std::vector<double> p1_out(half_size_squared, 0.0);
+  std::vector<double> p2_out(half_size_squared, 0.0);
+  std::vector<double> p3_out(half_size_squared, 0.0);
+  std::vector<double> p4_out(half_size_squared, 0.0);
+  std::vector<double> p5_out(half_size_squared, 0.0);
+  std::vector<double> p6_out(half_size_squared, 0.0);
+  std::vector<double> p7_out(half_size_squared, 0.0);
+
+  boost::mpi::reduce(
+      comm, p1, p1_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
+  boost::mpi::reduce(
+      comm, p2, p2_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
+  boost::mpi::reduce(
+      comm, p3, p3_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
+  boost::mpi::reduce(
+      comm, p4, p4_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
+  boost::mpi::reduce(
+      comm, p5, p5_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
+  boost::mpi::reduce(
+      comm, p6, p6_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
+  boost::mpi::reduce(
+      comm, p7, p7_out,
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+        std::vector<double> result(a.size());
+        std::ranges::transform(a, b, result.begin(), std::plus<>());
+        return result;
+      },
+      0);
 
   std::vector<double> result(size * size, 0.0);
   if (rank == 0) {
     std::vector<double> c11 =
-        AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-    std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-    std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+        AddMatrices(SubtractMatrices(AddMatrices(p1_out, p4_out, half_size), p5_out, half_size), p7_out, half_size);
+    std::vector<double> c12 = AddMatrices(p3_out, p5_out, half_size);
+    std::vector<double> c21 = AddMatrices(p2_out, p4_out, half_size);
     std::vector<double> c22 =
-        AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+        AddMatrices(SubtractMatrices(AddMatrices(p1_out, p3_out, half_size), p2_out, half_size), p6_out, half_size);
 
     MergeMatrix(result, c11, 0, 0, size);
     MergeMatrix(result, c12, 0, half_size, size);
