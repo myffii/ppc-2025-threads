@@ -235,14 +235,9 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  std::vector<std::vector<double>> gathered_results(7);
-  if (rank == 0) {
-    for (auto& vec : gathered_results) {
-      vec.resize(num_processes);
-    }
-  }
-
+  std::vector<std::vector<std::vector<double>>> gathered_results(7, std::vector<std::vector<double>>(num_processes));
   std::vector<double> empty_vec;
+
   boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 0) ? p1 : empty_vec, gathered_results[0], 0);
   boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 1) ? p2 : empty_vec, gathered_results[1], 0);
   boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 2) ? p3 : empty_vec, gathered_results[2], 0);
