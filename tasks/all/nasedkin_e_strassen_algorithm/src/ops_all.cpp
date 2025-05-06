@@ -161,35 +161,35 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
   std::vector<std::function<void()>> tasks;
 
-  if (rank == 0) {
+  if (rank % num_processes == 0) {
     tasks.emplace_back([&]() {
       p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads,
                             world);
     });
   }
-  if (rank == 1 % num_processes) {
+  if (rank % num_processes == 1) {
     tasks.emplace_back(
         [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads, world); });
   }
-  if (rank == 2 % num_processes) {
+  if (rank % num_processes == 2) {
     tasks.emplace_back(
         [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads, world); });
   }
-  if (rank == 3 % num_processes) {
+  if (rank % num_processes == 3) {
     tasks.emplace_back(
         [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads, world); });
   }
-  if (rank == 4 % num_processes) {
+  if (rank % num_processes == 4) {
     tasks.emplace_back(
         [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads, world); });
   }
-  if (rank == 5 % num_processes) {
+  if (rank % num_processes == 5) {
     tasks.emplace_back([&]() {
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads, world);
     });
   }
-  if (rank == 6 % num_processes) {
+  if (rank % num_processes == 6) {
     tasks.emplace_back([&]() {
       p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                             num_threads, world);
@@ -218,24 +218,37 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
+  std::vector<std::vector<double>> gathered_results;
   if (rank == 0) {
-    boost::mpi::gather(world, p1, p1, 0);
-  } else if (rank == 1 % num_processes) {
-    boost::mpi::gather(world, p2, p2, 0);
-  } else if (rank == 2 % num_processes) {
-    boost::mpi::gather(world, p3, p3, 0);
-  } else if (rank == 3 % num_processes) {
-    boost::mpi::gather(world, p4, p4, 0);
-  } else if (rank == 4 % num_processes) {
-    boost::mpi::gather(world, p5, p5, 0);
-  } else if (rank == 5 % num_processes) {
-    boost::mpi::gather(world, p6, p6, 0);
-  } else if (rank == 6 % num_processes) {
-    boost::mpi::gather(world, p7, p7, 0);
+    gathered_results.resize(num_processes);
+  }
+
+  if (rank % num_processes == 0) {
+    boost::mpi::gather(world, p1, gathered_results, 0);
+  } else if (rank % num_processes == 1) {
+    boost::mpi::gather(world, p2, gathered_results, 0);
+  } else if (rank % num_processes == 2) {
+    boost::mpi::gather(world, p3, gathered_results, 0);
+  } else if (rank % num_processes == 3) {
+    boost::mpi::gather(world, p4, gathered_results, 0);
+  } else if (rank % num_processes == 4) {
+    boost::mpi::gather(world, p5, gathered_results, 0);
+  } else if (rank % num_processes == 5) {
+    boost::mpi::gather(world, p6, gathered_results, 0);
+  } else if (rank % num_processes == 6) {
+    boost::mpi::gather(world, p7, gathered_results, 0);
   }
 
   std::vector<double> result;
   if (rank == 0) {
+    p1 = gathered_results[0 % num_processes];
+    p2 = gathered_results[1 % num_processes];
+    p3 = gathered_results[2 % num_processes];
+    p4 = gathered_results[3 % num_processes];
+    p5 = gathered_results[4 % num_processes];
+    p6 = gathered_results[5 % num_processes];
+    p7 = gathered_results[6 % num_processes];
+
     std::vector<double> c11 =
         AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
     std::vector<double> c12 = AddMatrices(p3, p5, half_size);
