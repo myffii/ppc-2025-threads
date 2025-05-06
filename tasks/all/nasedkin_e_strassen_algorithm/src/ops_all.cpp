@@ -235,28 +235,40 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  std::vector<std::vector<std::vector<double>>> gathered_results(7, std::vector<std::vector<double>>(num_processes));
-  std::vector<double> empty_vec;
+  std::vector<std::vector<double>> local_results;
+  if (rank == 0 || (num_processes >= 7 && rank < 7)) {
+    if (rank == 0) {
+      local_results.push_back(p1);
+      if (num_processes < 7) {
+        local_results.push_back(p2);
+        local_results.push_back(p3);
+        local_results.push_back(p4);
+        local_results.push_back(p5);
+        local_results.push_back(p6);
+        local_results.push_back(p7);
+      }
+    } else if (num_processes >= 7) {
+      if (rank == 1)
+        local_results.push_back(p2);
+      else if (rank == 2)
+        local_results.push_back(p3);
+      else if (rank == 3)
+        local_results.push_back(p4);
+      else if (rank == 4)
+        local_results.push_back(p5);
+      else if (rank == 5)
+        local_results.push_back(p6);
+      else if (rank == 6)
+        local_results.push_back(p7);
+    }
+  }
 
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 0) ? p1 : empty_vec, gathered_results[0], 0);
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 1) ? p2 : empty_vec, gathered_results[1], 0);
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 2) ? p3 : empty_vec, gathered_results[2], 0);
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 3) ? p4 : empty_vec, gathered_results[3], 0);
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 4) ? p5 : empty_vec, gathered_results[4], 0);
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 5) ? p6 : empty_vec, gathered_results[5], 0);
-  boost::mpi::gather(world, rank == 0 || (num_processes >= 7 && rank == 6) ? p7 : empty_vec, gathered_results[6], 0);
+  std::vector<std::vector<std::vector<double>>> gathered_results;
+  boost::mpi::gather(world, local_results, gathered_results, 0);
 
   std::vector<double> result;
   if (rank == 0) {
     if (num_processes >= 7) {
-      p1 = gathered_results[0][0];
-      p2 = gathered_results[1][1];
-      p3 = gathered_results[2][2];
-      p4 = gathered_results[3][3];
-      p5 = gathered_results[4][4];
-      p6 = gathered_results[5][5];
-      p7 = gathered_results[6][6];
-    } else {
       p1 = gathered_results[0][0];
       p2 = gathered_results[1][0];
       p3 = gathered_results[2][0];
@@ -264,6 +276,14 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
       p5 = gathered_results[4][0];
       p6 = gathered_results[5][0];
       p7 = gathered_results[6][0];
+    } else {
+      p1 = gathered_results[0][0];
+      p2 = gathered_results[0][1];
+      p3 = gathered_results[0][2];
+      p4 = gathered_results[0][3];
+      p5 = gathered_results[0][4];
+      p6 = gathered_results[0][5];
+      p7 = gathered_results[0][6];
     }
 
     std::vector<double> c11 =
