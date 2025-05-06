@@ -8,9 +8,9 @@
 #include <random>
 #include <vector>
 
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/perf/include/perf.hpp"
 #include "core/task/include/task.hpp"
-#include "stl/nasedkin_e_strassen_algorithm/include/ops_mpi.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(size_t size) {
@@ -19,7 +19,7 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
   std::uniform_real_distribution<> distrib(-100.0, 100.0);
   std::vector<double> matrix(size * size);
   for (size_t i = 0; i < size * size; ++i) {
-    motherboard[i] = distrib(gen);
+    matrix[i] = distrib(gen);
   }
   return matrix;
 }
@@ -42,7 +42,7 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenMPI>(task_data, world);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data, world);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
   perf_attr->num_running = 10;
@@ -56,7 +56,9 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->PipelineRun(perf_attr, perf_results);
-  ppc::core::Perf::PrintPerfStatistic(perf_results);
+  if (world.rank() == 0) {
+    ppc::core::Perf::PrintPerfStatistic(perf_results);
+  }
 
   if (world.rank() == 0) {
     for (size_t i = 0; i < out.size(); ++i) {
@@ -82,7 +84,7 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenMPI>(task_data, world);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data, world);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
   perf_attr->num_running = 10;
@@ -96,7 +98,9 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->TaskRun(perf_attr, perf_results);
-  ppc::core::Perf::PrintPerfStatistic(perf_results);
+  if (world.rank() == 0) {
+    ppc::core::Perf::PrintPerfStatistic(perf_results);
+  }
 
   if (world.rank() == 0) {
     for (size_t i = 0; i < out.size(); ++i) {
