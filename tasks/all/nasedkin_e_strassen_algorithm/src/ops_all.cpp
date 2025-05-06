@@ -1,3 +1,5 @@
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
+
 #include <algorithm>
 #include <boost/mpi.hpp>
 #include <boost/serialization/vector.hpp>
@@ -6,7 +8,6 @@
 #include <thread>
 #include <vector>
 
-#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
