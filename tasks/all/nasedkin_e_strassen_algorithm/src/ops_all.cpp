@@ -163,13 +163,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   boost::mpi::broadcast(world, b21, 0);
   boost::mpi::broadcast(world, b22, 0);
 
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
+  std::vector<double> p1(half_size_squared, 0.0);
+  std::vector<double> p2(half_size_squared, 0.0);
+  std::vector<double> p3(half_size_squared, 0.0);
+  std::vector<double> p4(half_size_squared, 0.0);
+  std::vector<double> p5(half_size_squared, 0.0);
+  std::vector<double> p6(half_size_squared, 0.0);
+  std::vector<double> p7(half_size_squared, 0.0);
 
   // Определяем задачи для всех семи умножений
   std::vector<std::function<void()>> tasks;
@@ -194,7 +194,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Распределяем задачи между процессами
   std::vector<std::function<void()>> local_tasks;
-  for (int i = rank; i < tasks.size(); i += num_processes) {
+  for (size_t i = rank; i < tasks.size(); i += num_processes) {
     local_tasks.push_back(tasks[i]);
   }
 
@@ -222,19 +222,23 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Собираем результаты всех умножений на процессе с rank == 0
+  std::vector<std::vector<double>> results(7, std::vector<double>(half_size_squared, 0.0));
+  results[0] = p1;
+  results[1] = p2;
+  results[2] = p3;
+  results[3] = p4;
+  results[4] = p5;
+  results[5] = p6;
+  results[6] = p7;
+
   std::vector<std::vector<double>> all_results;
   if (rank == 0) {
-    all_results.resize(7, std::vector<double>(half_size_squared));
+    all_results.resize(7, std::vector<double>(half_size_squared, 0.0));
   }
-  if (!p1.empty()) all_results[0] = p1;
-  if (!p2.empty()) all_results[1] = p2;
-  if (!p3.empty()) all_results[2] = p3;
-  if (!p4.empty()) all_results[3] = p4;
-  if (!p5.empty()) all_results[4] = p5;
-  if (!p6.empty()) all_results[5] = p6;
-  if (!p7.empty()) all_results[6] = p7;
 
-  boost::mpi::gather(world, all_results, all_results, 0);
+  for (int i = 0; i < 7; ++i) {
+    boost::mpi::gather(world, results[i], all_results[i], 0);
+  }
 
   if (rank == 0) {
     p1 = all_results[0];
