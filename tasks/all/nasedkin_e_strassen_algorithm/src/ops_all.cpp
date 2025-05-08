@@ -121,6 +121,108 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
+// Вспомогательная функция для создания задач
+std::vector<std::function<void()>> CreateStrassenTasks(std::vector<double>& p1, std::vector<double>& p2,
+                                                       std::vector<double>& p3, std::vector<double>& p4,
+                                                       std::vector<double>& p5, std::vector<double>& p6,
+                                                       std::vector<double>& p7, const std::vector<double>& a11,
+                                                       const std::vector<double>& a12, const std::vector<double>& a21,
+                                                       const std::vector<double>& a22, const std::vector<double>& b11,
+                                                       const std::vector<double>& b12, const std::vector<double>& b21,
+                                                       const std::vector<double>& b22, int half_size, int num_threads) {
+  std::vector<std::function<void()>> tasks;
+  tasks.reserve(7);
+  tasks.emplace_back([&]() {
+    p1 = StrassenAll::StrassenMultiply(StrassenAll::AddMatrices(a11, a22, half_size),
+                                       StrassenAll::AddMatrices(b11, b22, half_size), half_size, num_threads);
+  });
+  tasks.emplace_back([&]() {
+    p2 = StrassenAll::StrassenMultiply(StrassenAll::AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
+  });
+  tasks.emplace_back([&]() {
+    p3 = StrassenAll::StrassenMultiply(a11, StrassenAll::SubtractMatrices(b12, b22, half_size), half_size, num_threads);
+  });
+  tasks.emplace_back([&]() {
+    p4 = StrassenAll::StrassenMultiply(a22, StrassenAll::SubtractMatrices(b21, b11, half_size), half_size, num_threads);
+  });
+  tasks.emplace_back([&]() {
+    p5 = StrassenAll::StrassenMultiply(StrassenAll::AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
+  });
+  tasks.emplace_back([&]() {
+    p6 = StrassenAll::StrassenMultiply(StrassenAll::SubtractMatrices(a21, a11, half_size),
+                                       StrassenAll::AddMatrices(b11, b12, half_size), half_size, num_threads);
+  });
+  tasks.emplace_back([&]() {
+    p7 = StrassenAll::StrassenMultiply(StrassenAll::SubtractMatrices(a12, a22, half_size),
+                                       StrassenAll::AddMatrices(b21, b22, half_size), half_size, num_threads);
+  });
+  return tasks;
+}
+
+// Вспомогательная функция для выполнения локальных задач
+void ExecuteLocalTasks(const std::vector<std::function<void()>>& local_tasks, int num_threads) {
+  std::vector<std::thread> threads;
+  threads.reserve(std::min(num_threads, static_cast<int>(local_tasks.size())));
+  size_t task_index = 0;
+
+  for (int i = 0; i < std::min(num_threads, static_cast<int>(local_tasks.size())); ++i) {
+    if (task_index < local_tasks.size()) {
+      threads.emplace_back(local_tasks[task_index]);
+      ++task_index;
+    }
+  }
+
+  while (task_index < local_tasks.size()) {
+    local_tasks[task_index]();
+    ++task_index;
+  }
+
+  for (auto& thread : threads) {
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+}
+
+// Вспомогательная функция для распределения задач и записи результатов
+void DistributeAndStoreTasks(int rank, int num_processes, const std::vector<std::function<void()>>& tasks,
+                             std::vector<std::vector<double>>& results, std::vector<int>& computed_tasks,
+                             std::vector<double>& p1, std::vector<double>& p2, std::vector<double>& p3,
+                             std::vector<double>& p4, std::vector<double>& p5, std::vector<double>& p6,
+                             std::vector<double>& p7) {
+  std::vector<std::function<void()>> local_tasks;
+  for (size_t i = rank; i < tasks.size(); i += num_processes) {
+    local_tasks.push_back(tasks[i]);
+    computed_tasks[i] = 1;
+    switch (i) {
+      case 0:
+        results[0] = p1;
+        break;
+      case 1:
+        results[1] = p2;
+        break;
+      case 2:
+        results[2] = p3;
+        break;
+      case 3:
+        results[3] = p4;
+        break;
+      case 4:
+        results[4] = p5;
+        break;
+      case 5:
+        results[5] = p6;
+        break;
+      case 6:
+        results[6] = p7;
+        break;
+      default:
+        break;  // Удовлетворяет bugprone-switch-missing-default-case
+    }
+  }
+  ExecuteLocalTasks(local_tasks, results[0].size() == 0 ? 1 : static_cast<int>(local_tasks.size()));
+}
+
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
   boost::mpi::communicator world;
@@ -171,85 +273,12 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared, 0.0);
   std::vector<double> p7(half_size_squared, 0.0);
 
-  // Определяем задачи для всех семи умножений
-  std::vector<std::function<void()>> tasks;
-  tasks.reserve(7);
-  tasks.emplace_back([&]() {
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
-  });
-  tasks.emplace_back([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); });
-  tasks.emplace_back(
-      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); });
-  tasks.emplace_back(
-      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
-  tasks.emplace_back([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
-  tasks.emplace_back([&]() {
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                          num_threads);
-  });
-  tasks.emplace_back([&]() {
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                          num_threads);
-  });
+  auto tasks =
+      CreateStrassenTasks(p1, p2, p3, p4, p5, p6, p7, a11, a12, a21, a22, b11, b12, b21, b22, half_size, num_threads);
 
-  // Распределяем задачи между процессами
-  std::vector<std::function<void()>> local_tasks;
-  for (size_t i = rank; i < tasks.size(); i += num_processes) {
-    local_tasks.push_back(tasks[i]);
-  }
-
-  // Выполняем локальные задачи с использованием std::thread
-  std::vector<std::thread> threads;
-  threads.reserve(std::min(num_threads, static_cast<int>(local_tasks.size())));
-  size_t task_index = 0;
-
-  for (int i = 0; i < std::min(num_threads, static_cast<int>(local_tasks.size())); ++i) {
-    if (task_index < local_tasks.size()) {
-      threads.emplace_back(local_tasks[task_index]);
-      ++task_index;
-    }
-  }
-
-  while (task_index < local_tasks.size()) {
-    local_tasks[task_index]();
-    ++task_index;
-  }
-
-  for (auto& thread : threads) {
-    if (thread.joinable()) {
-      thread.join();
-    }
-  }
-
-  // Собираем результаты всех умножений на процессе с rank == 0
   std::vector<std::vector<double>> results(7, std::vector<double>(half_size_squared, 0.0));
-  std::vector<int> computed_tasks(7, 0);  // Отмечаем, какие задачи вычислены
-  for (size_t i = rank; i < tasks.size(); i += num_processes) {
-    computed_tasks[i] = 1;  // Помечаем выполненные задачи
-    switch (i) {
-      case 0:
-        results[0] = p1;
-        break;
-      case 1:
-        results[1] = p2;
-        break;
-      case 2:
-        results[2] = p3;
-        break;
-      case 3:
-        results[3] = p4;
-        break;
-      case 4:
-        results[4] = p5;
-        break;
-      case 5:
-        results[5] = p6;
-        break;
-      case 6:
-        results[6] = p7;
-        break;
-    }
-  }
+  std::vector<int> computed_tasks(7, 0);
+  DistributeAndStoreTasks(rank, num_processes, tasks, results, computed_tasks, p1, p2, p3, p4, p5, p6, p7);
 
   std::vector<std::vector<std::vector<double>>> gathered_results(7);
   if (rank == 0) {
@@ -265,7 +294,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   if (rank == 0) {
     for (int i = 0; i < 7; ++i) {
       for (int p = 0; p < num_processes; ++p) {
-        if ((p % num_processes) == (i % num_processes)) {  // Проверяем, вычислял ли процесс p задачу i
+        if ((p % num_processes) == (i % num_processes)) {
           results[i] = gathered_results[i][p];
           break;
         }
