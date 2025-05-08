@@ -1,8 +1,9 @@
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 #include <algorithm>
-#include <boost/mpi.hpp>
-#include <boost/serialization/vector.hpp>
+#include <boost/mpi/collectives/broadcast.hpp>
+#include <boost/mpi/collectives/gather.hpp>
+#include <boost/mpi/communicator.hpp>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -199,6 +200,8 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         case 6:
           results[6] = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size),
                                         half_size, num_threads);
+          break;
+        default:
           break;
       }
     }

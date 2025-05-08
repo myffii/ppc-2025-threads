@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <boost/mpi.hpp>
+#include <boost/mpi/communicator.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
