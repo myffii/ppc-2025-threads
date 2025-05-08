@@ -11,7 +11,6 @@
 
 #include "core/util/include/util.hpp"
 
-namespace mpi = boost::mpi;
 namespace nasedkin_e_strassen_algorithm_all {
 
 bool StrassenAll::PreProcessingImpl() {
@@ -56,8 +55,8 @@ bool StrassenAll::ValidationImpl() {
 }
 
 bool StrassenAll::RunImpl() {
-  mpi::environment env;
-  mpi::communicator world;
+  boost::mpi::environment env;
+  boost::mpi::communicator world;
   int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
   bool use_mpi = world.size() > 1;
   output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads, use_mpi);
@@ -125,7 +124,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads, bool use_mpi) {
-  mpi::communicator world;
+  boost::mpi::communicator world;
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
@@ -163,54 +162,54 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   if (use_mpi && world.size() > 1) {
     int rank = world.rank();
     int num_tasks = 7;
-    int tasks_per_process = num_tasks / world.size();
-    int start_task = rank * tasks_per_process;
-    int end_task = (rank == world.size() - 1) ? num_tasks : start_task + tasks_per_process;
+    int tasks_per_process = (num_tasks + world.size() - 1) / world.size();
+    int start_task = std syd::min(rank * tasks_per_process, num_tasks);
+    int end_task = std::min(start_task + tasks_per_process, num_tasks);
 
-    std::vector<std::vector<double>> local_results;
-    for (int task = start_task; task < end_task; ++task) {
-      std::vector<double> result;
+    std::vector<double> local_result;
+    if (start_task < end_task) {
+      int task = start_task;  // Выполняем только одну задачу на процесс
       if (task == 0)
-        result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
-                                  num_threads, false);
+        local_result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
+                                        num_threads, false);
       else if (task == 1)
-        result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads, false);
+        local_result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads, false);
       else if (task == 2)
-        result = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads, false);
+        local_result = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads, false);
       else if (task == 3)
-        result = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads, false);
+        local_result = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads, false);
       else if (task == 4)
-        result = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads, false);
+        local_result = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads, false);
       else if (task == 5)
-        result = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                                  num_threads, false);
+        local_result = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size),
+                                        half_size, num_threads, false);
       else if (task == 6)
-        result = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                                  num_threads, false);
-      local_results.push_back(result);
+        local_result = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size),
+                                        half_size, num_threads, false);
+    } else {
+      local_result.resize(half_size_squared, 0.0);  // Пустой результат для процессов без задач
     }
 
     std::vector<std::vector<double>> all_results;
-    mpi::all_gather(world, local_results, all_results);
+    boost::mpi::all_gather(world, local_result, all_results);
 
-    int result_index = 0;
-    for (const auto& results : all_results) {
-      for (const auto& result : results) {
-        if (result_index == 0)
-          p1 = result;
-        else if (result_index == 1)
-          p2 = result;
-        else if (result_index == 2)
-          p3 = result;
-        else if (result_index == 3)
-          p4 = result;
-        else if (result_index == 4)
-          p5 = result;
-        else if (result_index == 5)
-          p6 = result;
-        else if (result_index == 6)
-          p7 = result;
-        ++result_index;
+    // Распределяем результаты по p1–p7
+    for (size_t i = 0; i < all_results.size() && i < 7; ++i) {
+      if (!all_results[i].empty()) {
+        if (i == 0)
+          p1 = all_results[i];
+        else if (i == 1)
+          p2 = all_results[i];
+        else if (i == 2)
+          p3 = all_results[i];
+        else if (i == 3)
+          p4 = all_results[i];
+        else if (i == 4)
+          p5 = all_results[i];
+        else if (i == 5)
+          p6 = all_results[i];
+        else if (i == 6)
+          p7 = all_results[i];
       }
     }
   } else {
