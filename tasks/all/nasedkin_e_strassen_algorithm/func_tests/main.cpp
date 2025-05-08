@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <boost/mpi.hpp>
 #include <cstdint>
 #include <memory>
 #include <random>
@@ -9,7 +10,6 @@
 #include "core/task/include/task.hpp"
 
 namespace {
-
 std::vector<double> GenerateRandomMatrix(int size) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -30,6 +30,7 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 }
 
 void RunRandomMatrixTest(int size) {
+  boost::mpi::communicator world;
   std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateRandomMatrix(size);
   std::vector<double> out(size * size, 0.0);
@@ -50,6 +51,7 @@ void RunRandomMatrixTest(int size) {
 }
 
 void RunFixedMatrixTest(int size) {
+  boost::mpi::communicator world;
   std::vector<double> in_a(size * size);
   std::vector<double> in_b(size * size);
 
@@ -75,12 +77,15 @@ void RunFixedMatrixTest(int size) {
   strassen_task.Run();
   strassen_task.PostProcessing();
 
-  for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
-    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  if (world.rank() == 0) {
+    for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
+      EXPECT_NEAR(expected[i], out[i], 1e-6);
+    }
   }
 }
 
 void RunRandomMatrixIdentityTest(int size) {
+  boost::mpi::communicator world;
   std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
   std::vector<double> out(size * size, 0.0);
@@ -99,12 +104,15 @@ void RunRandomMatrixIdentityTest(int size) {
   strassen_task.Run();
   strassen_task.PostProcessing();
 
-  for (int i = 0; i < size * size; ++i) {
-    EXPECT_NEAR(in_a[i], out[i], 1e-6);
+  if (world.rank() == 0) {
+    for (int i = 0; i < size * size; ++i) {
+      EXPECT_NEAR(in_a[i], out[i], 1e-6);
+    }
   }
 }
 
 void RunFixedMatrixIdentityTest(int size) {
+  boost::mpi::communicator world;
   std::vector<double> in_a(size * size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
 
@@ -128,14 +136,16 @@ void RunFixedMatrixIdentityTest(int size) {
   strassen_task.Run();
   strassen_task.PostProcessing();
 
-  for (int i = 0; i < size * size; ++i) {
-    EXPECT_NEAR(in_a[i], out[i], 1e-6);
+  if (world.rank() == 0) {
+    for (int i = 0; i < size * size; ++i) {
+      EXPECT_NEAR(in_a[i], out[i], 1e-6);
+    }
   }
 }
-
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
+  boost::mpi::communicator world;
   auto task_data = std::make_shared<ppc::core::TaskData>();
   std::vector<double> a(0);
   std::vector<double> b(0);
@@ -145,7 +155,9 @@ TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
   task_data->outputs = {reinterpret_cast<uint8_t*>(out.data())};
   task_data->outputs_count = {0};
   nasedkin_e_strassen_algorithm_all::StrassenAll task(task_data);
-  ASSERT_FALSE(task.Validation());
+  if (world.rank() == 0) {
+    ASSERT_FALSE(task.Validation());
+  }
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }
