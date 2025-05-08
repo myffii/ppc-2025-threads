@@ -163,7 +163,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     int rank = world.rank();
     int num_tasks = 7;
     int tasks_per_process = (num_tasks + world.size() - 1) / world.size();
-    int start_task = std syd::min(rank * tasks_per_process, num_tasks);
+    int start_task = std::min(rank * tasks_per_process, num_tasks);
     int end_task = std::min(start_task + tasks_per_process, num_tasks);
 
     std::vector<double> local_result;
