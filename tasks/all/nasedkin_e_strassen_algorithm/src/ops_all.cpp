@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <boost/mpi.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -208,7 +209,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
       p1 = results[0];
       p2 = results[1];
       p3 = results[2];
-      p4 = results[3 functionalization
+      p4 = results[3];
       p5 = results[4];
       p6 = results[5];
       p7 = results[6];
@@ -275,7 +276,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
   MergeMatrix(result, c12, 0, half_size, size);
-  MergeMatrix(result, c21, half_size, 0);
+  MergeMatrix(result, c21, half_size, 0, size);
   MergeMatrix(result, c22, half_size, half_size, size);
 
   return result;
