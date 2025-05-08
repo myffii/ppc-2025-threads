@@ -1,78 +1,101 @@
 #include <gtest/gtest.h>
 
-#include <boost/mpi.hpp>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <random>
 #include <vector>
 
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/perf/include/perf.hpp"
+#include "core/task/include/task.hpp"
 
-std::vector<double> generate_matrix(int size) {
+namespace {
+
+std::vector<double> GenerateRandomMatrix(size_t size) {
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_real_distribution<double> dis(-10.0, 10.0);
-
+  std::uniform_real_distribution<> distrib(-100.0, 100.0);
   std::vector<double> matrix(size * size);
-  for (int i = 0; i < size * size; ++i) {
-    matrix[i] = dis(gen);
+  for (size_t i = 0; i < size * size; ++i) {
+    matrix[i] = distrib(gen);
   }
   return matrix;
 }
 
-std::vector<double> standard_matrix_multiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
-  std::vector<double> result(size * size, 0.0);
-  for (int i = 0; i < size; ++i) {
-    for (int j = 0; j < size; ++j) {
-      for (int k = 0; k < size; ++k) {
-        result[i * size + j] += a[i * size + k] * b[k * size + j];
-      }
-    }
-  }
-  return result;
-}
+}  // namespace
 
-TEST(nasedkin_e_strassen_algorithm_all_test_pipeline_run, Test) {
-  boost::mpi::environment env;
-  boost::mpi::communicator world;
+TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
+  constexpr size_t kMatrixSize = 512;
+  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
 
-  if (world.rank() == 0) {
-    std::vector<int> sizes = {64, 128, 256};
-    std::vector<double> times(sizes.size(), 0.0);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
-    for (size_t idx = 0; idx < sizes.size(); ++idx) {
-      int size = sizes[idx];
+  auto task_data = std::make_shared<ppc::core::TaskData>();
+  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+  task_data->inputs_count.emplace_back(in_a.size());
+  task_data->inputs_count.emplace_back(in_b.size());
+  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+  task_data->outputs_count.emplace_back(out.size());
 
-      std::vector<double> matrix_a = generate_matrix(size);
-      std::vector<double> matrix_b = generate_matrix(size);
-      std::vector<double> out(size * size);
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data);
 
-      auto task = std::make_shared<ppc::core::TaskData>();
-      task->inputs.emplace_back(reinterpret_cast<uint8_t*>(matrix_a.data()));
-      task->inputs_count.emplace_back(size * size);
-      task->inputs.emplace_back(reinterpret_cast<uint8_t*>(matrix_b.data()));
-      task->inputs_count.emplace_back(size * size);
-      task->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
-      task->outputs_count.emplace_back(size * size);
+  auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
+  perf_attr->num_running = 10;
+  const auto t0 = std::chrono::high_resolution_clock::now();
+  perf_attr->current_timer = [&] {
+    auto current_time_point = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(current_time_point - t0).count();
+    return static_cast<double>(duration) * 1e-9;
+  };
 
-      auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task);
-      ppc::core::Perf perf_analyzer(test_task);
-      ppc::core::PerfAttr attr;
-      attr.run_count = 5;
+  auto perf_results = std::make_shared<ppc::core::PerfResults>();
+  auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
+  perf_analyzer->PipelineRun(perf_attr, perf_results);
+  ppc::core::Perf::PrintPerfStatistic(perf_results);
 
-      ppc::core::PerfResults results;
-      perf_analyzer.pipeline_run(attr, results);
-      times[idx] = results.avg_time_in_ms;
-
-      std::vector<double> expected = standard_matrix_multiply(matrix_a, matrix_b, size);
-      for (size_t i = 0; i < out.size(); ++i) {
-        EXPECT_NEAR(expected[i], out[i], 1e-6);
-      }
-    }
+  for (size_t i = 0; i < out.size(); ++i) {
+    EXPECT_NEAR(expected[i], out[i], 1e-6);
   }
 }
 
-int main(int argc, char** argv) {
-  boost::mpi::environment env(argc, argv);
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
+  constexpr size_t kMatrixSize = 512;
+  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
+
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+
+  auto task_data = std::make_shared<ppc::core::TaskData>();
+  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+  task_data->inputs_count.emplace_back(in_a.size());
+  task_data->inputs_count.emplace_back(in_b.size());
+  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+  task_data->outputs_count.emplace_back(out.size());
+
+  auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data);
+
+  auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
+  perf_attr->num_running = 10;
+  const auto t0 = std::chrono::high_resolution_clock::now();
+  perf_attr->current_timer = [&] {
+    auto current_time_point = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(current_time_point - t0).count();
+    return static_cast<double>(duration) * 1e-9;
+  };
+
+  auto perf_results = std::make_shared<ppc::core::PerfResults>();
+  auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
+  perf_analyzer->TaskRun(perf_attr, perf_results);
+  ppc::core::Perf::PrintPerfStatistic(perf_results);
+
+  for (size_t i = 0; i < out.size(); ++i) {
+    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  }
 }

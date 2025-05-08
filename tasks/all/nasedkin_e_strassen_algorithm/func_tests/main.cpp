@@ -9,6 +9,7 @@
 #include "core/task/include/task.hpp"
 
 namespace {
+
 std::vector<double> GenerateRandomMatrix(int size) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -131,6 +132,7 @@ void RunFixedMatrixIdentityTest(int size) {
     EXPECT_NEAR(in_a[i], out[i], 1e-6);
   }
 }
+
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
