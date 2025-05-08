@@ -13,6 +13,15 @@
 
 namespace nasedkin_e_strassen_algorithm_all {
 
+// Пользовательская операция редукции для std::vector<double>
+struct VectorPlus {
+  std::vector<double> operator()(const std::vector<double>& a, const std::vector<double>& b) const {
+    std::vector<double> result(a.size());
+    std::ranges::transform(a, b, result.begin(), std::plus<>());
+    return result;
+  }
+};
+
 bool StrassenAll::PreProcessingImpl() {
   unsigned int input_size = task_data->inputs_count[0];
   auto* in_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
@@ -230,13 +239,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Сбор результатов на процессе 0
-  boost::mpi::reduce(world, p1, p1, std::plus<std::vector<double>>(), 0);
-  boost::mpi::reduce(world, p2, p2, std::plus<std::vector<double>>(), 0);
-  boost::mpi::reduce(world, p3, p3, std::plus<std::vector<double>>(), 0);
-  boost::mpi::reduce(world, p4, p4, std::plus<std::vector<double>>(), 0);
-  boost::mpi::reduce(world, p5, p5, std::plus<std::vector<double>>(), 0);
-  boost::mpi::reduce(world, p6, p6, std::plus<std::vector<double>>(), 0);
-  boost::mpi::reduce(world, p7, p7, std::plus<std::vector<double>>(), 0);
+  boost::mpi::reduce(world, p1, p1, VectorPlus(), 0);
+  boost::mpi::reduce(world, p2, p2, VectorPlus(), 0);
+  boost::mpi::reduce(world, p3, p3, VectorPlus(), 0);
+  boost::mpi::reduce(world, p4, p4, VectorPlus(), 0);
+  boost::mpi::reduce(world, p5, p5, VectorPlus(), 0);
+  boost::mpi::reduce(world, p6, p6, VectorPlus(), 0);
+  boost::mpi::reduce(world, p7, p7, VectorPlus(), 0);
 
   std::vector<double> result;
   if (world.rank() == 0) {
@@ -250,7 +259,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     result.resize(size * size);
     MergeMatrix(result, c11, 0, 0, size);
     MergeMatrix(result, c12, 0, half_size, size);
-    MergeMatrix(result, c21shuffle, half_size, 0, size);
+    MergeMatrix(result, c21, half_size, 0, size);
     MergeMatrix(result, c22, half_size, half_size, size);
   }
 
