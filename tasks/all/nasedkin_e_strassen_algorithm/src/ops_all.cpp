@@ -223,31 +223,55 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Собираем результаты всех умножений на процессе с rank == 0
   std::vector<std::vector<double>> results(7, std::vector<double>(half_size_squared, 0.0));
-  results[0] = p1;
-  results[1] = p2;
-  results[2] = p3;
-  results[3] = p4;
-  results[4] = p5;
-  results[5] = p6;
-  results[6] = p7;
-
-  std::vector<std::vector<double>> all_results;
-  if (rank == 0) {
-    all_results.resize(7, std::vector<double>(half_size_squared, 0.0));
+  std::vector<int> computed_tasks(7, 0);  // Отмечаем, какие задачи вычислены
+  for (size_t i = rank; i < tasks.size(); i += num_processes) {
+    computed_tasks[i] = 1;  // Помечаем выполненные задачи
+    switch (i) {
+      case 0:
+        results[0] = p1;
+        break;
+      case 1:
+        results[1] = p2;
+        break;
+      case 2:
+        results[2] = p3;
+        break;
+      case 3:
+        results[3] = p4;
+        break;
+      case 4:
+        results[4] = p5;
+        break;
+      case 5:
+        results[5] = p6;
+        break;
+      case 6:
+        results[6] = p7;
+        break;
+    }
   }
 
+  std::vector<std::vector<double>> all_results(7, std::vector<double>(half_size_squared * num_processes, 0.0));
   for (int i = 0; i < 7; ++i) {
     boost::mpi::gather(world, results[i], all_results[i], 0);
   }
 
   if (rank == 0) {
-    p1 = all_results[0];
-    p2 = all_results[1];
-    p3 = all_results[2];
-    p4 = all_results[3];
-    p5 = all_results[4];
-    p6 = all_results[5];
-    p7 = all_results[6];
+    for (int i = 0; i < 7; ++i) {
+      for (int p = 0; p < num_processes; ++p) {
+        if ((p % 7 == i % 7) || (p % 7 + num_processes == i % 7)) {  // Проверяем, вычислял ли процесс задачу i
+          std::copy(all_results[i].begin() + p * half_size_squared,
+                    all_results[i].begin() + (p + 1) * half_size_squared, results[i].begin());
+        }
+      }
+    }
+    p1 = results[0];
+    p2 = results[1];
+    p3 = results[2];
+    p4 = results[3];
+    p5 = results[4];
+    p6 = results[5];
+    p7 = results[6];
   }
 
   std::vector<double> c11(half_size_squared, 0.0);
