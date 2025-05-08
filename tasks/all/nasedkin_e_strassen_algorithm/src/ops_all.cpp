@@ -251,17 +251,23 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  std::vector<std::vector<double>> all_results(7, std::vector<double>(half_size_squared * num_processes, 0.0));
+  std::vector<std::vector<std::vector<double>>> gathered_results(7);
+  if (rank == 0) {
+    for (int i = 0; i < 7; ++i) {
+      gathered_results[i].resize(num_processes, std::vector<double>(half_size_squared, 0.0));
+    }
+  }
+
   for (int i = 0; i < 7; ++i) {
-    boost::mpi::gather(world, results[i], all_results[i], 0);
+    boost::mpi::gather(world, results[i], gathered_results[i], 0);
   }
 
   if (rank == 0) {
     for (int i = 0; i < 7; ++i) {
       for (int p = 0; p < num_processes; ++p) {
-        if ((p % 7 == i % 7) || (p % 7 + num_processes == i % 7)) {  // Проверяем, вычислял ли процесс задачу i
-          std::copy(all_results[i].begin() + p * half_size_squared,
-                    all_results[i].begin() + (p + 1) * half_size_squared, results[i].begin());
+        if ((p % num_processes) == (i % num_processes)) {  // Проверяем, вычислял ли процесс p задачу i
+          results[i] = gathered_results[i][p];
+          break;
         }
       }
     }
