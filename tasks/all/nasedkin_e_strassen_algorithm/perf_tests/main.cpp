@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <boost/mpi/communicator.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -25,6 +26,7 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
+  boost::mpi::communicator world;
   constexpr size_t kMatrixSize = 512;
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
@@ -33,12 +35,14 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
-  task_data->inputs_count.emplace_back(in_a.size());
-  task_data->inputs_count.emplace_back(in_b.size());
-  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
-  task_data->outputs_count.emplace_back(out.size());
+  if (world.rank() == 0) {
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+    task_data->inputs_count.emplace_back(in_a.size());
+    task_data->inputs_count.emplace_back(in_b.size());
+    task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+    task_data->outputs_count.emplace_back(out.size());
+  }
 
   auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data);
 
@@ -56,12 +60,15 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   perf_analyzer->PipelineRun(perf_attr, perf_results);
   ppc::core::Perf::PrintPerfStatistic(perf_results);
 
-  for (size_t i = 0; i < out.size(); ++i) {
-    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  if (world.rank() == 0) {
+    for (size_t i = 0; i < out.size(); ++i) {
+      EXPECT_NEAR(expected[i], out[i], 1e-6);
+    }
   }
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
+  boost::mpi::communicator world;
   constexpr size_t kMatrixSize = 512;
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
@@ -70,19 +77,14 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
-  task_data->inputs_count.emplace_back(in_a.size());
-  task_data->inputs_count.emplace_back(in_b.size());
-  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
-
-  auto task_data = std::make_shared<ppc::core::TaskData>();
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
-  task_data->inputs_count.emplace_back(in_a.size());
-  task_data->inputs_count.emplace_back(in_b.size());
-  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
-  task_data->outputs_count.emplace_back(out.size());
+  if (world.rank() == 0) {
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+    task_data->inputs_count.emplace_back(in_a.size());
+    task_data->inputs_count.emplace_back(in_b.size());
+    task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+    task_data->outputs_count.emplace_back(out.size());
+  }
 
   auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data);
 
@@ -100,7 +102,9 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   perf_analyzer->TaskRun(perf_attr, perf_results);
   ppc::core::Perf::PrintPerfStatistic(perf_results);
 
-  for (size_t i = 0; i < out.size(); ++i) {
-    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  if (world.rank() == 0) {
+    for (size_t i = 0; i < out.size(); ++i) {
+      EXPECT_NEAR(expected[i], out[i], 1e-6);
+    }
   }
 }
