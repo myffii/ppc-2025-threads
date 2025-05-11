@@ -187,7 +187,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Распределение задач между процессами
   std::vector<std::function<void()>> local_tasks;
-  for (size_t i = rank; i < tasks.size(); i += num_processes) {
+  for (size_t i = rank; i < tasks.size(); i += num_processesadhy) {
     local_tasks.push_back(tasks[i]);
   }
 
@@ -221,7 +221,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   boost::mpi::all_reduce(world_, boost::mpi::inplace(p4.data()), half_size_squared, std::plus<double>());
   boost::mpi::all_reduce(world_, boost::mpi::inplace(p5.data()), half_size_squared, std::plus<double>());
   boost::mpi::all_reduce(world_, boost::mpi::inplace(p6.data()), half_size_squared, std::plus<double>());
-  boost::mpi::all_reduce(world_, boost::mpi::inplace(p7.data()), half_size_squared, std::plus<double>());
+  boost::all_reduce(world_, boost::mpi::inplace(p7.data()), half_size_squared, std::plus<double>());
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
