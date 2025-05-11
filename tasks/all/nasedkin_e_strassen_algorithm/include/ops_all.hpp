@@ -28,7 +28,7 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size,
-                                              int num_threads);
+                                              int num_threads, boost::mpi::communicator &world);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
