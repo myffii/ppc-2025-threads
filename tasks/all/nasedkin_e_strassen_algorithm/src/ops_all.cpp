@@ -1,14 +1,12 @@
-#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
-
 #include <algorithm>
 #include <boost/mpi/collectives.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <cmath>
-#include <cstddef>
 #include <functional>
 #include <thread>
 #include <vector>
 
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
@@ -55,6 +53,7 @@ bool StrassenAll::ValidationImpl() {
 }
 
 bool StrassenAll::RunImpl() {
+  boost::mpi::communicator world;
   int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
   output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads);
   return true;
@@ -84,15 +83,26 @@ std::vector<double> StrassenAll::SubtractMatrices(const std::vector<double>& a, 
 }
 
 std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
+  boost::mpi::communicator world;
   std::vector<double> result(size * size, 0.0);
-  for (int i = 0; i < size; ++i) {
+
+  int rank = world.rank();
+  int num_procs = world.size();
+  int chunk_size = size / num_procs;
+  int start_row = rank * chunk_size;
+  int end_row = (rank == num_procs - 1) ? size : start_row + chunk_size;
+
+  for (int i = start_row; i < end_row; ++i) {
     for (int j = 0; j < size; ++j) {
       for (int k = 0; k < size; ++k) {
         result[(i * size) + j] += a[(i * size) + k] * b[(k * size) + j];
       }
     }
   }
-  return result;
+
+  std::vector<double> global_result(size * size, 0.0);
+  boost::mpi::all_reduce(world, result.data(), size * size, global_result.data(), std::plus<double>());
+  return global_result;
 }
 
 std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size) {
@@ -176,49 +186,26 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
                           num_threads);
   });
 
-  int num_tasks = tasks.size();
-  int rank = world.rank();
-  int world_size = world.size();
-  int tasks_per_process = (num_tasks + world_size - 1) / world_size;
-  int start_task = rank * tasks_per_process;
-  int end_task = std::min(start_task + tasks_per_process, num_tasks);
-
   std::vector<std::thread> threads;
-  threads.reserve(std::min(num_threads, end_task - start_task));
+  threads.reserve(std::min(num_threads, static_cast<int>(tasks.size())));
+  size_t task_index = 0;
 
-  for (int i = start_task; i < end_task && i < num_tasks; ++i) {
-    if (num_threads > 1 && threads.size() < static_cast<size_t>(num_threads)) {
-      threads.emplace_back(tasks[i]);
-    } else {
-      tasks[i]();
+  for (int i = 0; i < std::min(num_threads, static_cast<int>(tasks.size())); ++i) {
+    if (task_index < tasks.size()) {
+      threads.emplace_back(tasks[task_index]);
+      ++task_index;
     }
+  }
+
+  while (task_index < tasks.size()) {
+    tasks[task_index]();
+    ++task_index;
   }
 
   for (auto& thread : threads) {
     if (thread.joinable()) {
       thread.join();
     }
-  }
-
-  std::vector<std::vector<double>> all_p(7, std::vector<double>(half_size_squared));
-  all_p[0] = p1;
-  all_p[1] = p2;
-  all_p[2] = p3;
-  all_p[3] = p4;
-  all_p[4] = p5;
-  all_p[5] = p6;
-  all_p[6] = p7;
-
-  boost::mpi::all_gather(world, all_p.data(), all_p.size(), all_p.data());
-
-  if (rank == 0) {
-    p1 = all_p[0];
-    p2 = all_p[1];
-    p3 = all_p[2];
-    p4 = all_p[3];
-    p5 = all_p[4];
-    p6 = all_p[5];
-    p7 = all_p[6];
   }
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
