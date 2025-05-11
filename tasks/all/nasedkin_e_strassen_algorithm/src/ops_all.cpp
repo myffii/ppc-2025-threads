@@ -165,7 +165,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
-  // Распределяем задачи между процессами
+  // Распределяем задачи между процессам
   int tasks_per_process = 7 / world_size;
   int extra_tasks = 7 % world_size;
 
