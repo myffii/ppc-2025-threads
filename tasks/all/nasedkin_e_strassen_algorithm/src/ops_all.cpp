@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <numeric>
 #include <thread>
 #include <vector>
 
@@ -342,6 +343,23 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
               << std::endl;
   }
 
+  // Проверяем значения p1–p7 перед объединением
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Checking p1–p7 values" << std::endl;
+  auto print_first_elements = [](const std::vector<double>& vec, const std::string& name) {
+    std::cout << name << " first 5 elements: ";
+    for (size_t i = 0; i < std::min<size_t>(5, vec.size()); ++i) {
+      std::cout << vec[i] << " ";
+    }
+    std::cout << std::endl;
+  };
+  print_first_elements(p1, "p1");
+  print_first_elements(p2, "p2");
+  print_first_elements(p3, "p3");
+  print_first_elements(p4, "p4");
+  print_first_elements(p5, "p5");
+  print_first_elements(p6, "p6");
+  print_first_elements(p7, "p7");
+
   // Запускаем многопоточное выполнение задач, не выполненных через MPI
   std::vector<std::function<void()>> remaining_tasks;
 
@@ -471,18 +489,23 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Combining results" << std::endl;
+  // Корректируем вычисление c11 и c22
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c11 computed, size=" << c11.size()
             << std::endl;
+  print_first_elements(c11, "c11");
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c12 computed, size=" << c12.size()
             << std::endl;
+  print_first_elements(c12, "c12");
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c21 computed, size=" << c21.size()
             << std::endl;
+  print_first_elements(c21, "c21");
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c22 computed, size=" << c22.size()
             << std::endl;
+  print_first_elements(c22, "c22");
 
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Merging submatrices" << std::endl;
   std::vector<double> result(size * size);
@@ -493,6 +516,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
             << ": Result matrix created, size=" << result.size() << std::endl;
+  print_first_elements(result, "result");
 
   // Очищаем созданный объект environment, если он был создан
   if (env != nullptr) {
