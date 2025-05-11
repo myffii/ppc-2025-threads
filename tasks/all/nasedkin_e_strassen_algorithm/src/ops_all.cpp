@@ -128,7 +128,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int half_size_squared = half_size * half_size;
 
   std::vector<double> a11(half_size_squared), a12(half_size_squared), a21(half_size_squared), a22(half_size_squared);
-  std::vector<double> b11(half_size_squared), b12(half_size_squared), b21(half_size_squared), b22(half_size_squared;
+  std::vector<double> b11(half_size_squared), b12(half_size_squared), b21(half_size_squared), b22(half_size_squared);
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
@@ -138,10 +138,10 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
+  constexpr int num_tasks = 7;
   if (top_level && comm.size() > 1) {
     int rank = comm.rank();
     int num_procs = comm.size();
-    int num_tasks = 7;
     int tasks_per_process = num_tasks / num_procs;
     int extra_tasks = num_tasks % num_procs;
     int start_task = rank * tasks_per_process + std::min(rank, extra_tasks);
