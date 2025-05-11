@@ -23,6 +23,8 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install -r docs/requirements.txt
+          python3 -m pip install snowballstemmer==2.2.0
+        # https://github.com/sphinx-doc/sphinx/issues/13533
       - name: Configure project
         run: >
           cmake -S . -B build -D USE_DOCS=ON
