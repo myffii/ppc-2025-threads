@@ -226,14 +226,22 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  // Собираем результаты с помощью MPI
-  boost::mpi::all_reduce(comm, p1.data(), p1.size(), p1.data(), std::plus<double>());
-  boost::mpi::all_reduce(comm, p2.data(), p2.size(), p2.data(), std::plus<double>());
-  boost::mpi::all_reduce(comm, p3.data(), p3.size(), p3.data(), std::plus<double>());
-  boost::mpi::all_reduce(comm, p4.data(), p4.size(), p4.data(), std::plus<double>());
-  boost::mpi::all_reduce(comm, p5.data(), p5.size(), p5.data(), std::plus<double>());
-  boost::mpi::all_reduce(comm, p6.data(), p6.size(), p6.data(), std::plus<double>());
-  boost::mpi::all_reduce(comm, p7.data(), p7.size(), p7.data(), std::plus<double>());
+  // Собираем результаты с помощью MPI, используя временные буферы
+  std::vector<double> temp(half_size_squared);
+  boost::mpi::all_reduce(comm, p1.data(), p1.size(), temp.data(), std::plus<double>());
+  p1 = temp;
+  boost::mpi::all_reduce(comm, p2.data(), p2.size(), temp.data(), std::plus<double>());
+  p2 = temp;
+  boost::mpi::all_reduce(comm, p3.data(), p3.size(), temp.data(), std::plus<double>());
+  p3 = temp;
+  boost::mpi::all_reduce(comm, p4.data(), p4.size(), temp.data(), std::plus<double>());
+  p4 = temp;
+  boost::mpi::all_reduce(comm, p5.data(), p5.size(), temp.data(), std::plus<double>());
+  p5 = temp;
+  boost::mpi::all_reduce(comm, p6.data(), p6.size(), temp.data(), std::plus<double>());
+  p6 = temp;
+  boost::mpi::all_reduce(comm, p7.data(), p7.size(), temp.data(), std::plus<double>());
+  p7 = temp;
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
