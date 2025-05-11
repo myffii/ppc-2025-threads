@@ -1,10 +1,10 @@
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 #include <algorithm>
-#include <boost/mpi/collectives.hpp>
+#include <boost/mpi/collectives/broadcast.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/environment.hpp>
-#include <boost/serialization/vector.hpp>
+#include <boost/serialization/vector.hpp>  // NOLINT(*-include-cleaner)
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -163,7 +163,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<double> p1;
+  std::vector<double> p2;
+  std::vector<double> p3;
+  std::vector<double> p4;
+  std::vector<double> p5;
+  std::vector<double> p6;
+  std::vector<double> p7;
 
   // Изменим распределение вычислений между процессами с учетом фактического количества процессов
   if (world_size < 7) {
@@ -224,13 +230,27 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
 
     // Получаем результаты от других процессов, только если это процессы, которые существуют
-    if (world_size > 0 && task_id != 0) boost::mpi::broadcast(world, p1, 0);
-    if (world_size > 1 && task_id != 1) boost::mpi::broadcast(world, p2, 1);
-    if (world_size > 2 && task_id != 2) boost::mpi::broadcast(world, p3, 2);
-    if (world_size > 3 && task_id != 3) boost::mpi::broadcast(world, p4, 3);
-    if (world_size > 4 && task_id != 4) boost::mpi::broadcast(world, p5, 4);
-    if (world_size > 5 && task_id != 5) boost::mpi::broadcast(world, p6, 5);
-    if (world_size > 6 && task_id != 6) boost::mpi::broadcast(world, p7, 6);
+    if (world_size > 0 && task_id != 0) {
+        boost::mpi::broadcast(world, p1, 0);
+    }
+    if (world_size > 1 && task_id != 1) {
+        boost::mpi::broadcast(world, p2, 1);
+    }
+    if (world_size > 2 && task_id != 2) {
+        boost::mpi::broadcast(world, p3, 2);
+    }
+    if (world_size > 3 && task_id != 3) {
+        boost::mpi::broadcast(world, p4, 3);
+    }
+    if (world_size > 4 && task_id != 4) {
+        boost::mpi::broadcast(world, p5, 4);
+    }
+    if (world_size > 5 && task_id != 5) {
+        boost::mpi::broadcast(world, p6, 5);
+    }
+    if (world_size > 6 && task_id != 6) {
+        boost::mpi::broadcast(world, p7, 6);
+    }
   }
 
   // Запускаем многопоточное выполнение задач, не выполненных через MPI
