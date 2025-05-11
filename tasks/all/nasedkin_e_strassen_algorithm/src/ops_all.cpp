@@ -124,14 +124,13 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
-  std::cout << "Rank " << 0 << ", Thread " << std::this_thread::get_id() << ": Starting StrassenMultiply, size=" << size
+  std::cout << "Rank 0, Thread " << std::this_thread::get_id() << ": Starting StrassenMultiply, size=" << size
             << ", num_threads=" << num_threads << std::endl;
 
   // Инициализация MPI, если еще не инициализирован
   boost::mpi::environment* env = nullptr;
   if (!boost::mpi::environment::initialized()) {
-    std::cout << "Rank " << 0 << ", Thread " << std::this_thread::get_id() << ": Initializing MPI environment"
-              << std::endl;
+    std::cout << "Rank 0, Thread " << std::this_thread::get_id() << ": Initializing MPI environment" << std::endl;
     static int argc = 0;
     static char** argv = nullptr;
     env = new boost::mpi::environment(argc, argv);
@@ -186,7 +185,8 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Matrix splitting completed"
             << std::endl;
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
+  std::vector<double> p1(half_size_squared, 0.0), p2(half_size_squared, 0.0), p3(half_size_squared, 0.0),
+      p4(half_size_squared, 0.0), p5(half_size_squared, 0.0), p6(half_size_squared, 0.0), p7(half_size_squared, 0.0);
 
   // Распределяем задачи между процессами
   int tasks_per_process = 7 / world_size;
@@ -264,9 +264,19 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
               << std::endl;
     for (int task_id = 0; task_id < 7; ++task_id) {
       int owner = task_id % world_size;
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Processing task ID=" << task_id
+                << ", owner=" << owner << std::endl;
       if (rank == owner) {
         std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Broadcasting p" << (task_id + 1)
-                  << " for task ID=" << task_id << std::endl;
+                  << ", size="
+                  << (task_id == 0   ? p1.size()
+                      : task_id == 1 ? p2.size()
+                      : task_id == 2 ? p3.size()
+                      : task_id == 3 ? p4.size()
+                      : task_id == 4 ? p5.size()
+                      : task_id == 5 ? p6.size()
+                                     : p7.size())
+                  << std::endl;
         switch (task_id) {
           case 0:
             boost::mpi::broadcast(world, p1, owner);
@@ -292,7 +302,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         }
       } else {
         std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Receiving p" << (task_id + 1)
-                  << " for task ID=" << task_id << " from rank=" << owner << std::endl;
+                  << " from rank=" << owner << std::endl;
         switch (task_id) {
           case 0:
             boost::mpi::broadcast(world, p1, owner);
@@ -337,7 +347,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Checking remaining tasks"
             << std::endl;
-  if (p1.empty()) {
+  if (p1.empty() || p1.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p1"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
@@ -349,7 +359,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     });
   }
 
-  if (p2.empty()) {
+  if (p2.empty() || p2.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p2"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
@@ -361,7 +371,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     });
   }
 
-  if (p3.empty()) {
+  if (p3.empty() || p3.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p3"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
@@ -373,7 +383,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     });
   }
 
-  if (p4.empty()) {
+  if (p4.empty() || p4.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p4"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
@@ -385,7 +395,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     });
   }
 
-  if (p5.empty()) {
+  if (p5.empty() || p5.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p5"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
@@ -397,7 +407,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     });
   }
 
-  if (p6.empty()) {
+  if (p6.empty() || p6.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p6"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
@@ -405,12 +415,12 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
                 << std::endl;
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads);
-      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+      std::cout << "Rank " << std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
                 << ": p6 computed in thread, size=" << p6.size() << std::endl;
     });
   }
 
-  if (p7.empty()) {
+  if (p7.empty() || p7.size() != static_cast<size_t>(half_size_squared)) {
     std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p7"
               << std::endl;
     remaining_tasks.emplace_back([&]() {
