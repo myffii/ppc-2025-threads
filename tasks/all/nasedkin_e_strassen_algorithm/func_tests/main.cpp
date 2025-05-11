@@ -11,7 +11,6 @@
 #include "core/task/include/task.hpp"
 
 namespace {
-
 std::vector<double> GenerateRandomMatrix(int size) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -32,6 +31,7 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 }
 
 void RunRandomMatrixTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   if (world.rank() == 0) {
     std::vector<double> in_a = GenerateRandomMatrix(size);
@@ -55,6 +55,7 @@ void RunRandomMatrixTest(int size) {
 }
 
 void RunFixedMatrixTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   if (world.rank() == 0) {
     std::vector<double> in_a(size * size);
@@ -89,6 +90,7 @@ void RunFixedMatrixTest(int size) {
 }
 
 void RunRandomMatrixIdentityTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   if (world.rank() == 0) {
     std::vector<double> in_a = GenerateRandomMatrix(size);
@@ -116,6 +118,7 @@ void RunRandomMatrixIdentityTest(int size) {
 }
 
 void RunFixedMatrixIdentityTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   if (world.rank() == 0) {
     std::vector<double> in_a(size * size);
@@ -146,10 +149,10 @@ void RunFixedMatrixIdentityTest(int size) {
     }
   }
 }
-
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   if (world.rank() == 0) {
     auto task_data = std::make_shared<ppc::core::TaskData>();
