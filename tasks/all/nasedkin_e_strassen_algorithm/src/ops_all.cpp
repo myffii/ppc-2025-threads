@@ -147,13 +147,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
+  std::vector<double> p1(half_size_squared, 0.0);
+  std::vector<double> p2(half_size_squared, 0.0);
+  std::vector<double> p3(half_size_squared, 0.0);
+  std::vector<double> p4(half_size_squared, 0.0);
+  std::vector<double> p5(half_size_squared, 0.0);
+  std::vector<double> p6(half_size_squared, 0.0);
+  std::vector<double> p7(half_size_squared, 0.0);
 
   std::vector<std::function<void()>> tasks;
   tasks.reserve(7);
@@ -237,14 +237,63 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  // Синхронизация результатов между процессами MPI
-  boost::mpi::all_gather(world, p1, p1);
-  boost::mpi::all_gather(world, p2, p2);
-  boost::mpi::all_gather(world, p3, p3);
-  boost::mpi::all_gather(world, p4, p4);
-  boost::mpi::all_gather(world, p5, p5);
-  boost::mpi::all_gather(world, p6, p6);
-  boost::mpi::all_gather(world, p7, p7);
+  // Собираем результаты от всех процессов
+  std::vector<std::vector<double>> gathered_results;
+  std::vector<std::vector<double>> local_results;
+
+  // Формируем локальный вектор результатов для текущего процесса
+  if (num_tasks > 0) {
+    for (int task_idx : task_indices) {
+      switch (task_idx) {
+        case 0:
+          local_results.push_back(p1);
+          break;
+        case 1:
+          local_results.push_back(p2);
+          break;
+        case 2:
+          local_results.push_back(p3);
+          break;
+        case 3:
+          local_results.push_back(p4);
+          break;
+        case 4:
+          local_results.push_back(p5);
+          break;
+        case 5:
+          local_results.push_back(p6);
+          break;
+        case 6:
+          local_results.push_back(p7);
+          break;
+      }
+    }
+  }
+
+  // Собираем результаты всех процессов
+  boost::mpi::all_gather(world, local_results, gathered_results);
+
+  // Распределяем собранные результаты обратно в p1, p2, ..., p7
+  std::vector<std::vector<double>> all_ps(7, std::vector<double>(half_size_squared, 0.0));
+  for (int proc = 0; proc < num_processes; ++proc) {
+    int proc_start_task = proc * tasks_per_process + std::min(proc, extra_tasks);
+    вечт proc_num_tasks = tasks_per_process + (proc < extra_tasks ? 1 : 0);
+    for (int i = 0; i < proc_num_tasks; ++i) {
+      int task_idx = proc_start_task + i;
+      if (task_idx < 7 && i < gathered_results[proc].size()) {
+        all_ps[task_idx] = gathered_results[proc][i];
+      }
+    }
+  }
+
+  // Присваиваем результаты обратно
+  p1 = all_ps[0];
+  p2 = all_ps[1];
+  p3 = all_ps[2];
+  p4 = all_ps[3];
+  p5 = all_ps[4];
+  p6 = all_ps[5];
+  p7 = all_ps[6];
 
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
