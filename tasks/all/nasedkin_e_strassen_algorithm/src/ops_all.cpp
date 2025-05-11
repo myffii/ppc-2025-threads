@@ -56,8 +56,7 @@ bool StrassenAll::ValidationImpl() {
 
 bool StrassenAll::RunImpl() {
   int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
-  boost::mpi::communicator world;
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads, world);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads);
   return true;
 }
 
@@ -121,7 +120,9 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 }
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                                  int num_threads, boost::mpi::communicator& world) {
+                                                  int num_threads) {
+  static boost::mpi::communicator world;
+
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
@@ -169,35 +170,35 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     if (start_task == 0) {
       tasks.emplace_back([&]() {
         p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
-                              num_threads, world);
+                              num_threads);
       });
     }
     if (start_task <= 1 && 1 < end_task) {
       tasks.emplace_back(
-          [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads, world); });
+          [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); });
     }
     if (start_task <= 2 && 2 < end_task) {
       tasks.emplace_back(
-          [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads, world); });
+          [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); });
     }
     if (start_task <= 3 && 3 < end_task) {
       tasks.emplace_back(
-          [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads, world); });
+          [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
     }
     if (start_task <= 4 && 4 < end_task) {
       tasks.emplace_back(
-          [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads, world); });
+          [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
     }
     if (start_task <= 5 && 5 < end_task) {
       tasks.emplace_back([&]() {
         p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                              num_threads, world);
+                              num_threads);
       });
     }
     if (start_task <= 6 && 6 < end_task) {
       tasks.emplace_back([&]() {
         p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                              num_threads, world);
+                              num_threads);
       });
     }
   }
