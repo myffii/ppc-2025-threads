@@ -135,12 +135,6 @@ void RunFixedMatrixIdentityTest(int size) {
 }
 }  // namespace
 
-int main(int argc, char** argv) {
-  boost::mpi::environment env(argc, argv);
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
   auto task_data = std::make_shared<ppc::core::TaskData>();
   std::vector<double> a(0);
