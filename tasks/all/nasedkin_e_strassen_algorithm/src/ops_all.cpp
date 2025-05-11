@@ -4,6 +4,7 @@
 #include <boost/mpi/collectives.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/environment.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
 #include <mutex>
@@ -175,7 +176,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     task_assignments[i] = i % num_processes;
   }
 
-  int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
+  size_t num_threads = std::min(static_cast<size_t>(ppc::util::GetPPCNumThreads()), size_t(16));
   std::vector<std::thread> threads;
   std::mutex thread_mutex;
   std::vector<int> local_tasks;
