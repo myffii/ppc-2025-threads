@@ -1,3 +1,5 @@
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
+
 #include <algorithm>
 #include <boost/mpi/communicator.hpp>
 #include <cmath>
@@ -5,7 +7,6 @@
 #include <thread>
 
 #include "core/util/include/util.hpp"
-#include "ops_all.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
 
