@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -123,13 +124,14 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
-  // Отключаем синхронизацию std::cout для ускорения вывода
-  std::cout.sync_with_stdio(false);
+  std::cout << "Rank " << 0 << ", Thread " << std::this_thread::get_id() << ": Starting StrassenMultiply, size=" << size
+            << ", num_threads=" << num_threads << std::endl;
 
   // Инициализация MPI, если еще не инициализирован
   boost::mpi::environment* env = nullptr;
   if (!boost::mpi::environment::initialized()) {
-    std::cout << FormatDebugLog(0, "Initializing MPI environment");
+    std::cout << "Rank " << 0 << ", Thread " << std::this_thread::get_id() << ": Initializing MPI environment"
+              << std::endl;
     static int argc = 0;
     static char** argv = nullptr;
     env = new boost::mpi::environment(argc, argv);
@@ -139,25 +141,24 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int rank = world.rank();
   int world_size = world.size();
 
-  std::cout << FormatDebugLog(rank, "Starting StrassenMultiply with matrix size=" + std::to_string(size) +
-                                        ", num_threads=" + std::to_string(num_threads) +
-                                        ", world_size=" + std::to_string(world_size));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": MPI initialized, world_size=" << world_size << std::endl;
 
   // Базовый случай или слишком маленькая матрица для распараллеливания
   if (size <= 32 || world_size <= 1) {
-    std::cout << FormatDebugLog(rank, "Base case triggered: size=" + std::to_string(size) +
-                                          ", world_size=" + std::to_string(world_size) + ". Using StandardMultiply.");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Base case: size=" << size
+              << ", world_size=" << world_size << ", using StandardMultiply" << std::endl;
     auto result = StandardMultiply(a, b, size);
-    std::cout << FormatDebugLog(rank, "Base case completed. Result size=" + std::to_string(result.size()));
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+              << ": Base case completed, result size=" << result.size() << std::endl;
     return result;
   }
 
   int half_size = size / 2;
   int half_size_squared = half_size * half_size;
 
-  std::cout << FormatDebugLog(rank, "Splitting matrices: size=" + std::to_string(size) +
-                                        ", half_size=" + std::to_string(half_size) +
-                                        ", half_size_squared=" + std::to_string(half_size_squared));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Splitting matrices, size=" << size
+            << ", half_size=" << half_size << ", half_size_squared=" << half_size_squared << std::endl;
 
   std::vector<double> a11(half_size_squared);
   std::vector<double> a12(half_size_squared);
@@ -168,87 +169,104 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size_squared);
   std::vector<double> b22(half_size_squared);
 
-  // На всех процессах разделяем матрицы на подматрицы
-  std::cout << FormatDebugLog(rank, "Splitting matrix A into a11, a12, a21, a22");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Splitting matrix A into a11, a12, a21, a22" << std::endl;
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
   SplitMatrix(a, a22, half_size, half_size, size);
 
-  std::cout << FormatDebugLog(rank, "Splitting matrix B into b11, b12, b21, b22");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Splitting matrix B into b11, b12, b21, b22" << std::endl;
   SplitMatrix(b, b11, 0, 0, size);
   SplitMatrix(b, b12, 0, half_size, size);
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::cout << FormatDebugLog(rank, "Matrix splitting completed. Submatrix size=" + std::to_string(half_size_squared));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Matrix splitting completed"
+            << std::endl;
 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
   // Распределяем задачи между процессами
   int tasks_per_process = 7 / world_size;
   int extra_tasks = 7 % world_size;
-
   int start_task = rank * tasks_per_process + std::min(rank, extra_tasks);
   int end_task = start_task + tasks_per_process + (rank < extra_tasks ? 1 : 0);
 
-  std::cout << FormatDebugLog(rank, "Task distribution: tasks_per_process=" + std::to_string(tasks_per_process) +
-                                        ", extra_tasks=" + std::to_string(extra_tasks) + ", start_task=" +
-                                        std::to_string(start_task) + ", end_task=" + std::to_string(end_task));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Task distribution: tasks_per_process=" << tasks_per_process << ", extra_tasks=" << extra_tasks
+            << ", start_task=" << start_task << ", end_task=" << end_task << std::endl;
 
   // Выполняем назначенные задачи
   for (int task_id = start_task; task_id < end_task; ++task_id) {
-    std::cout << FormatDebugLog(rank, "Executing task ID=" + std::to_string(task_id));
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Executing task ID=" << task_id
+              << std::endl;
     switch (task_id) {
       case 0:
-        std::cout << FormatDebugLog(rank, "Computing p1: (a11 + a22) * (b11 + b22)");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                  << ": Computing p1: (a11 + a22) * (b11 + b22)" << std::endl;
         p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
                               num_threads);
-        std::cout << FormatDebugLog(rank, "p1 computed. Size=" + std::to_string(p1.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p1 computed, size=" << p1.size()
+                  << std::endl;
         break;
       case 1:
-        std::cout << FormatDebugLog(rank, "Computing p2: (a21 + a22) * b11");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p2: (a21 + a22) * b11"
+                  << std::endl;
         p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
-        std::cout << FormatDebugLog(rank, "p2 computed. Size=" + std::to_string(p2.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p2 computed, size=" << p2.size()
+                  << std::endl;
         break;
       case 2:
-        std::cout << FormatDebugLog(rank, "Computing p3: a11 * (b12 - b22)");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p3: a11 * (b12 - b22)"
+                  << std::endl;
         p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
-        std::cout << FormatDebugLog(rank, "p3 computed. Size=" + std::to_string(p3.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p3 computed, size=" << p3.size()
+                  << std::endl;
         break;
       case 3:
-        std::cout << FormatDebugLog(rank, "Computing p4: a22 * (b21 - b11)");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p4: a22 * (b21 - b11)"
+                  << std::endl;
         p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
-        std::cout << FormatDebugLog(rank, "p4 computed. Size=" + std::to_string(p4.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p4 computed, size=" << p4.size()
+                  << std::endl;
         break;
       case 4:
-        std::cout << FormatDebugLog(rank, "Computing p5: (a11 + a12) * b22");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p5: (a11 + a12) * b22"
+                  << std::endl;
         p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
-        std::cout << FormatDebugLog(rank, "p5 computed. Size=" + std::to_string(p5.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p5 computed, size=" << p5.size()
+                  << std::endl;
         break;
       case 5:
-        std::cout << FormatDebugLog(rank, "Computing p6: (a21 - a11) * (b11 + b12)");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                  << ": Computing p6: (a21 - a11) * (b11 + b12)" << std::endl;
         p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                               num_threads);
-        std::cout << FormatDebugLog(rank, "p6 computed. Size=" + std::to_string(p6.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p6 computed, size=" << p6.size()
+                  << std::endl;
         break;
       case 6:
-        std::cout << FormatDebugLog(rank, "Computing p7: (a12 - a22) * (b21 + b22)");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                  << ": Computing p7: (a12 - a22) * (b21 + b22)" << std::endl;
         p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                               num_threads);
-        std::cout << FormatDebugLog(rank, "p7 computed. Size=" + std::to_string(p7.size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": p7 computed, size=" << p7.size()
+                  << std::endl;
         break;
     }
   }
 
   // Обмениваемся результатами между процессами
   if (world_size > 1) {
-    std::cout << FormatDebugLog(rank, "Starting MPI broadcast for results");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Starting MPI broadcast"
+              << std::endl;
     for (int task_id = 0; task_id < 7; ++task_id) {
       int owner = task_id % world_size;
       if (rank == owner) {
-        std::cout << FormatDebugLog(rank, "Broadcasting result for task ID=" + std::to_string(task_id) + " (p" +
-                                              std::to_string(task_id + 1) + ")");
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Broadcasting p" << (task_id + 1)
+                  << " for task ID=" << task_id << std::endl;
         switch (task_id) {
           case 0:
             boost::mpi::broadcast(world, p1, owner);
@@ -273,8 +291,8 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
             break;
         }
       } else {
-        std::cout << FormatDebugLog(rank, "Receiving result for task ID=" + std::to_string(task_id) + " (p" +
-                                              std::to_string(task_id + 1) + ") from rank=" + std::to_string(owner));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Receiving p" << (task_id + 1)
+                  << " for task ID=" << task_id << " from rank=" << owner << std::endl;
         switch (task_id) {
           case 0:
             boost::mpi::broadcast(world, p1, owner);
@@ -298,155 +316,189 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
             boost::mpi::broadcast(world, p7, owner);
             break;
         }
-        std::cout << FormatDebugLog(rank, "Received result for task ID=" + std::to_string(task_id) + ". Size=" +
-                                              std::to_string((task_id == 0   ? p1
-                                                              : task_id == 1 ? p2
-                                                              : task_id == 2 ? p3
-                                                              : task_id == 3 ? p4
-                                                              : task_id == 4 ? p5
-                                                              : task_id == 5 ? p6
-                                                                             : p7)
-                                                                 .size()));
+        std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Received p" << (task_id + 1)
+                  << ", size="
+                  << (task_id == 0   ? p1.size()
+                      : task_id == 1 ? p2.size()
+                      : task_id == 2 ? p3.size()
+                      : task_id == 3 ? p4.size()
+                      : task_id == 4 ? p5.size()
+                      : task_id == 5 ? p6.size()
+                                     : p7.size())
+                  << std::endl;
       }
     }
-    std::cout << FormatDebugLog(rank, "MPI broadcast completed");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": MPI broadcast completed"
+              << std::endl;
   }
 
   // Запускаем многопоточное выполнение задач, не выполненных через MPI
   std::vector<std::function<void()>> remaining_tasks;
 
-  std::cout << FormatDebugLog(rank, "Checking for remaining tasks");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Checking remaining tasks"
+            << std::endl;
   if (p1.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p1");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p1"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p1 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p1 in thread"
+                << std::endl;
       p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p1 computed. Size=" + std::to_string(p1.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p1 computed in thread, size=" << p1.size() << std::endl;
     });
   }
 
   if (p2.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p2");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p2"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p2 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p2 in thread"
+                << std::endl;
       p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p2 computed. Size=" + std::to_string(p2.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p2 computed in thread, size=" << p2.size() << std::endl;
     });
   }
 
   if (p3.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p3");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p3"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p3 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p3 in thread"
+                << std::endl;
       p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p3 computed. Size=" + std::to_string(p3.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p3 computed in thread, size=" << p3.size() << std::endl;
     });
   }
 
   if (p4.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p4");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p4"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p4 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p4 in thread"
+                << std::endl;
       p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p4 computed. Size=" + std::to_string(p4.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p4 computed in thread, size=" << p4.size() << std::endl;
     });
   }
 
   if (p5.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p5");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p5"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p5 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p5 in thread"
+                << std::endl;
       p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p5 computed. Size=" + std::to_string(p5.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p5 computed in thread, size=" << p5.size() << std::endl;
     });
   }
 
   if (p6.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p6");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p6"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p6 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p6 in thread"
+                << std::endl;
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p6 computed. Size=" + std::to_string(p6.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p6 computed in thread, size=" << p6.size() << std::endl;
     });
   }
 
   if (p7.empty()) {
-    std::cout << FormatDebugLog(rank, "Adding remaining task for p7");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Adding remaining task for p7"
+              << std::endl;
     remaining_tasks.emplace_back([&]() {
-      std::cout << FormatDebugLog(rank, "Computing remaining p7 in thread");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Computing p7 in thread"
+                << std::endl;
       p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                             num_threads);
-      std::cout << FormatDebugLog(rank, "Remaining p7 computed. Size=" + std::to_string(p7.size()));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": p7 computed in thread, size=" << p7.size() << std::endl;
     });
   }
 
-  std::cout << FormatDebugLog(rank, "Total remaining tasks: " + std::to_string(remaining_tasks.size()));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Total remaining tasks=" << remaining_tasks.size() << std::endl;
 
   // Запускаем многопоточное выполнение оставшихся задач
   std::vector<std::thread> threads;
   threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
   size_t task_index = 0;
 
-  std::cout << FormatDebugLog(rank,
-                              "Launching threads for remaining tasks. Max threads=" +
-                                  std::to_string(std::min(num_threads, static_cast<int>(remaining_tasks.size()))));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Launching threads, max threads=" << std::min(num_threads, static_cast<int>(remaining_tasks.size()))
+            << std::endl;
   for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
     if (task_index < remaining_tasks.size()) {
-      std::cout << FormatDebugLog(rank, "Starting thread for task index=" + std::to_string(task_index));
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+                << ": Starting thread for task index=" << task_index << std::endl;
       threads.emplace_back(remaining_tasks[task_index]);
       ++task_index;
     }
   }
 
-  std::cout << FormatDebugLog(rank, "Executing remaining tasks sequentially");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Executing remaining tasks sequentially" << std::endl;
   while (task_index < remaining_tasks.size()) {
-    std::cout << FormatDebugLog(rank, "Executing task index=" + std::to_string(task_index) + " sequentially");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Executing task index=" << task_index
+              << " sequentially" << std::endl;
     remaining_tasks[task_index]();
     ++task_index;
   }
 
-  std::cout << FormatDebugLog(rank, "Joining threads");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Joining threads" << std::endl;
   for (auto& thread : threads) {
     if (thread.joinable()) {
       thread.join();
-      std::cout << FormatDebugLog(rank, "Thread joined");
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Thread joined" << std::endl;
     }
   }
 
-  std::cout << FormatDebugLog(rank, "Combining results for final matrix");
-  // Комбинируем результаты для получения финальной матрицы
-  std::cout << FormatDebugLog(rank, "Computing c11: (p1 + p4 - p5 + p7)");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Combining results" << std::endl;
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::cout << FormatDebugLog(rank, "Computing c12: (p3 + p5)");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c11 computed, size=" << c11.size()
+            << std::endl;
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::cout << FormatDebugLog(rank, "Computing c21: (p2 + p4)");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c12 computed, size=" << c12.size()
+            << std::endl;
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::cout << FormatDebugLog(rank, "Computing c22: (p1 + p3 - p2 + p6)");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c21 computed, size=" << c21.size()
+            << std::endl;
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": c22 computed, size=" << c22.size()
+            << std::endl;
 
-  std::cout << FormatDebugLog(rank, "Merging submatrices into result");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Merging submatrices" << std::endl;
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
   MergeMatrix(result, c12, 0, half_size, size);
   MergeMatrix(result, c21, half_size, 0, size);
   MergeMatrix(result, c22, half_size, half_size, size);
 
-  std::cout << FormatDebugLog(rank, "Result matrix created. Size=" + std::to_string(result.size()));
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+            << ": Result matrix created, size=" << result.size() << std::endl;
 
   // Очищаем созданный объект environment, если он был создан
   if (env != nullptr) {
-    std::cout << FormatDebugLog(rank, "Cleaning up MPI environment");
+    std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": Cleaning up MPI environment"
+              << std::endl;
     delete env;
   }
 
-  std::cout << FormatDebugLog(rank, "StrassenMultiply completed");
+  std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id() << ": StrassenMultiply completed"
+            << std::endl;
   return result;
 }
 
 void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size()));
+  int child_size = static_cast<int>(SD::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
                       parent.begin() + (row_start + i) * parent_size + col_start + child_size,
