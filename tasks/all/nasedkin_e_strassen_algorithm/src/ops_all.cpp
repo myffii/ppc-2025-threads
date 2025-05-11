@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <boost/mpi/collectives.hpp>
-#include <boost/mpi/collectives/broadcast.hpp>
+#include <boost/mpi/communicator.hpp>
 #include <boost/mpi/environment.hpp>
-#include <boost/serialization/vector.hpp>  // NOLINT(*-include-cleaner)
+#include <boost/serialization/vector.hpp> // NOLINT(*-include-cleaner)
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -123,7 +123,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
-  // Инициализация MPI
+  // Инициализация MPI, если еще не инициализирован
   boost::mpi::environment* env = nullptr;
   if (!boost::mpi::environment::initialized()) {
     static int argc = 0;
@@ -135,16 +135,14 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int rank = world.rank();
   int world_size = world.size();
 
-  // Базовый случай или слишком маленькая матрица
+  // Базовый случай или слишком маленькая матрица для распараллеливания
   if (size <= 32 || world_size <= 1) {
-    delete env;
     return StandardMultiply(a, b, size);
   }
 
   int half_size = size / 2;
   int half_size_squared = half_size * half_size;
 
-  // Разделение матриц на подматрицы
   std::vector<double> a11(half_size_squared);
   std::vector<double> a12(half_size_squared);
   std::vector<double> a21(half_size_squared);
@@ -154,58 +152,165 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size_squared);
   std::vector<double> b22(half_size_squared);
 
+  // На всех процессах разделяем матрицы на подматрицы
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
   SplitMatrix(a, a22, half_size, half_size, size);
+
   SplitMatrix(b, b11, 0, 0, size);
   SplitMatrix(b, b12, 0, half_size, size);
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  // Инициализация результатов
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
-  // Распределение задач между процессами
-  std::vector<std::function<void()>> tasks(7);
-  tasks[0] = [&]() {
-    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
-  };
-  tasks[1] = [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); };
-  tasks[2] = [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); };
-  tasks[3] = [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); };
-  tasks[4] = [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); };
-  tasks[5] = [&]() {
-    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                          num_threads);
-  };
-  tasks[6] = [&]() {
-    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                          num_threads);
-  };
+  // Распределяем задачи между процессами
+  int tasks_per_process = 7 / world_size;
+  int extra_tasks = 7 % world_size;
 
-  // Определение задач для текущего процесса
-  std::vector<int> assigned_tasks;
-  for (int i = 0; i < 7; ++i) {
-    if (i % world_size == rank) {
-      assigned_tasks.push_back(i);
+  // Определяем, какие задачи будет выполнять текущий процесс
+  int start_task = rank * tasks_per_process + std::min(rank, extra_tasks);
+  int end_task = start_task + tasks_per_process + (rank < extra_tasks ? 1 : 0);
+
+  // Выполняем назначенные задачи
+  for (int task_id = start_task; task_id < end_task; ++task_id) {
+    switch (task_id) {
+      case 0:
+        p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
+                              num_threads);
+        break;
+      case 1:
+        p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
+        break;
+      case 2:
+        p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
+        break;
+      case 3:
+        p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
+        break;
+      case 4:
+        p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
+        break;
+      case 5:
+        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
+                              num_threads);
+        break;
+      case 6:
+        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
+                              num_threads);
+        break;
     }
   }
 
-  // Выполнение назначенных задач с использованием многопоточности
+  // Обмениваемся результатами между процессами
+  if (world_size > 1) {
+    for (int task_id = 0; task_id < 7; ++task_id) {
+      int owner = task_id % world_size;
+      if (rank == owner) {
+        // Отправляем результат
+        switch (task_id) {
+          case 0:
+            boost::mpi::broadcast(world, p1, owner);
+            break;
+          case 1:
+            boost::mpi::broadcast(world, p2, owner);
+            break;
+          case 2:
+            boost::mpi::broadcast(world, p3, owner);
+            break;
+          case 3:
+            boost::mpi::broadcast(world, p4, owner);
+            break;
+          case 4:
+            boost::mpi::broadcast(world, p5, owner);
+            break;
+          case 5:
+            boost::mpi::broadcast(world, p6, owner);
+            break;
+          case 6:
+            boost::mpi::broadcast(world, p7, owner);
+            break;
+        }
+      } else {
+        // Получаем результат
+        switch (task_id) {
+          case 0:
+            boost::mpi::broadcast(world, p1, owner);
+            break;
+          case 1:
+            boost::mpi::broadcast(world, p2, owner);
+            break;
+          case 2:
+            boost::mpi::broadcast(world, p3, owner);
+            break;
+          case 3:
+            boost::mpi::broadcast(world, p4, owner);
+            break;
+          case 4:
+            boost::mpi::broadcast(world, p5, owner);
+            break;
+          case 5:
+            boost::mpi::broadcast(world, p6, owner);
+            break;
+          case 6:
+            boost::mpi::broadcast(world, p7, owner);
+            break;
+        }
+      }
+    }
+  }
+
+  // Запускаем многопоточное выполнение задач, не выполненных через MPI
+  std::vector<std::function<void()>> remaining_tasks;
+
+  if (p1.empty())
+    remaining_tasks.emplace_back([&]() {
+      p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
+    });
+
+  if (p2.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); });
+
+  if (p3.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); });
+
+  if (p4.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
+
+  if (p5.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
+
+  if (p6.empty())
+    remaining_tasks.emplace_back([&]() {
+      p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
+                            num_threads);
+    });
+
+  if (p7.empty())
+    remaining_tasks.emplace_back([&]() {
+      p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
+                            num_threads);
+    });
+
+  // Запускаем многопоточное выполнение оставшихся задач
   std::vector<std::thread> threads;
-  threads.reserve(std::min(num_threads, static_cast<int>(assigned_tasks.size())));
+  threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
   size_t task_index = 0;
 
-  for (int i = 0; i < std::min(num_threads, static_cast<int>(assigned_tasks.size())); ++i) {
-    if (task_index < assigned_tasks.size()) {
-      threads.emplace_back(tasks[assigned_tasks[task_index]]);
+  for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
+    if (task_index < remaining_tasks.size()) {
+      threads.emplace_back(remaining_tasks[task_index]);
       ++task_index;
     }
   }
 
-  while (task_index < assigned_tasks.size()) {
-    tasks[assigned_tasks[task_index]]();
+  while (task_index < remaining_tasks.size()) {
+    remaining_tasks[task_index]();
     ++task_index;
   }
 
@@ -215,18 +320,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  // Синхронизация результатов через MPI
-  if (world_size > 1) {
-    boost::mpi::all_reduce(world, p1, p1, std::plus<>{});
-    boost::mpi::all_reduce(world, p2, p2, std::plus<>{});
-    boost::mpi::all_reduce(world, p3, p3, std::plus<>{});
-    boost::mpi::all_reduce(world, p4, p4, std::plus<>{});
-    boost::mpi::all_reduce(world, p5, p5, std::plus<>{});
-    boost::mpi::all_reduce(world, p6, p6, std::plus<>{});
-    boost::mpi::all_reduce(world, p7, p7, std::plus<>{});
-  }
-
-  // Комбинирование результатов
+  // Комбинируем результаты для получения финальной матрицы
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
@@ -238,13 +332,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   MergeMatrix(result, c21, half_size, 0, size);
   MergeMatrix(result, c22, half_size, half_size, size);
 
-  delete env;
+  // Очищаем созданный объект environment, если он был создан
+  if (env != nullptr) {
+    delete env;
+  }
+
   return result;
 }
 
 void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size()));
+  int child_size = static_cast<int>(std::sqrt(child.size())));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
                       parent.begin() + (row_start + i) * parent_size + col_start + child_size,
@@ -254,7 +352,7 @@ void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<dou
 
 void StrassenAll::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size()));
+  int child_size = static_cast<int>(std::sqrt(child.size())));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
                       parent.begin() + (row_start + i) * parent_size + col_start);
