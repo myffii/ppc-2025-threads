@@ -1,4 +1,4 @@
-#include "nasedkin_e_strassen_algorithm/include/ops_all.hpp"
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 #include <algorithm>
 #include <boost/mpi/collectives.hpp>
