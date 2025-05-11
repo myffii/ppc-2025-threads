@@ -27,8 +27,6 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
-  boost::mpi::environment env;
-  boost::mpi::communicator comm;
   if (comm.rank() == 0) {
     constexpr size_t kMatrixSize = 512;
     std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
@@ -69,8 +67,6 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
-  boost::mpi::environment env;
-  boost::mpi::communicator comm;
   if (comm.rank() == 0) {
     constexpr size_t kMatrixSize = 512;
     std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
