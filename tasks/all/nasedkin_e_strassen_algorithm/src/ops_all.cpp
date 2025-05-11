@@ -342,7 +342,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
 void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size())));
+  int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
                       parent.begin() + (row_start + i) * parent_size + col_start + child_size,
@@ -352,7 +352,7 @@ void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<dou
 
 void StrassenAll::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
-  int child_size = static_cast<int>(std::sqrt(child.size())));
+  int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
                       parent.begin() + (row_start + i) * parent_size + col_start);
