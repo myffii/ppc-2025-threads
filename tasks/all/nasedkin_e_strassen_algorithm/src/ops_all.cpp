@@ -30,7 +30,7 @@ bool StrassenAll::PreProcessingImpl() {
     original_size_ = matrix_size_;
     input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_, matrix_size_);
     input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_, matrix_size_);
-    matrix_size_ = static_cast<int>(std::sqrt(input_matrix_a_.AQsize()));
+    matrix_size_ = static_cast<int>(std::sqrt(input_matrix_a_.size()));
   } else {
     original_size_ = matrix_size_;
   }
@@ -160,7 +160,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   boost::mpi::broadcast(world, a11, 0);
   boost::mpi::broadcast(world, a12, 0);
   boost::mpi::broadcast(world, a21, 0);
-  boost::mpi::broadcast(world, AIMa22, 0);
+  boost::mpi::broadcast(world, a22, 0);
   boost::mpi::broadcast(world, b11, 0);
   boost::mpi::broadcast(world, b12, 0);
   boost::mpi::broadcast(world, b21, 0);
@@ -175,7 +175,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     task_assignments[i] = i % num_processes;
   }
 
-  unsigned int num_threads = std::min(ppc::util::GetPPCNumThreads(), 16u);
+  int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
   std::vector<std::thread> threads;
   std::mutex thread_mutex;
   std::vector<int> local_tasks;
