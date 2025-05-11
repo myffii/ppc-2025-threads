@@ -27,8 +27,8 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
-  boost::mpi::communicator world;
-  if (world.rank() == 0) {
+  boost::mpi::communicator comm;
+  if (comm.rank() == 0) {
     constexpr size_t kMatrixSize = 512;
     std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
     std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
@@ -67,8 +67,8 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
-  boost::mpi::communicator world;
-  if (world.rank() == 0) {
+  boost::mpi::communicator comm;
+  if (comm.rank() == 0) {
     constexpr size_t kMatrixSize = 512;
     std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
     std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
@@ -104,4 +104,10 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
       EXPECT_NEAR(expected[i], out[i], 1e-6);
     }
   }
+}
+
+int main(int argc, char** argv) {
+  boost::mpi::environment env(argc, argv);
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
