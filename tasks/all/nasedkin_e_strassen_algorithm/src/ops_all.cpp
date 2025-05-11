@@ -165,115 +165,130 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
-  // Распределяем вычисления между MPI процессами
-  switch (rank % 7) {
-    case 0: {
+  // Изменим распределение вычислений между процессами с учетом фактического количества процессов
+  if (world_size < 7) {
+    // Если процессов меньше 7, вычисляем все на каждом процессе без использования MPI broadcast
+    if (rank == 0) {
       p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
-      boost::mpi::broadcast(world, p1, 0);
-      break;
-    }
-    case 1: {
       p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
-      boost::mpi::broadcast(world, p2, 1);
-      break;
-    }
-    case 2: {
       p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
-      boost::mpi::broadcast(world, p3, 2);
-      break;
-    }
-    case 3: {
       p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
-      boost::mpi::broadcast(world, p4, 3);
-      break;
-    }
-    case 4: {
       p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
-      boost::mpi::broadcast(world, p5, 4);
-      break;
-    }
-    case 5: {
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads);
-      boost::mpi::broadcast(world, p6, 5);
-      break;
-    }
-    case 6: {
       p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                             num_threads);
-      boost::mpi::broadcast(world, p7, 6);
-      break;
+    }
+  } else {
+    // Если процессов 7 или больше, можно использовать MPI broadcast с безопасными корневыми процессами
+    int task_id = rank % 7;
+    switch (task_id) {
+      case 0: {
+        p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
+                              num_threads);
+        boost::mpi::broadcast(world, p1, 0);
+        break;
+      }
+      case 1: {
+        p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
+        boost::mpi::broadcast(world, p2, 1);
+        break;
+      }
+      case 2: {
+        p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
+        boost::mpi::broadcast(world, p3, 2);
+        break;
+      }
+      case 3: {
+        p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
+        boost::mpi::broadcast(world, p4, 3);
+        break;
+      }
+      case 4: {
+        p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
+        boost::mpi::broadcast(world, p5, 4);
+        break;
+      }
+      case 5: {
+        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
+                              num_threads);
+        boost::mpi::broadcast(world, p6, 5);
+        break;
+      }
+      case 6: {
+        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
+                              num_threads);
+        boost::mpi::broadcast(world, p7, 6);
+        break;
+      }
+    }
+
+    // Получаем результаты от других процессов, только если это процессы, которые существуют
+    if (world_size > 0 && task_id != 0) boost::mpi::broadcast(world, p1, 0);
+    if (world_size > 1 && task_id != 1) boost::mpi::broadcast(world, p2, 1);
+    if (world_size > 2 && task_id != 2) boost::mpi::broadcast(world, p3, 2);
+    if (world_size > 3 && task_id != 3) boost::mpi::broadcast(world, p4, 3);
+    if (world_size > 4 && task_id != 4) boost::mpi::broadcast(world, p5, 4);
+    if (world_size > 5 && task_id != 5) boost::mpi::broadcast(world, p6, 5);
+    if (world_size > 6 && task_id != 6) boost::mpi::broadcast(world, p7, 6);
+  }
+
+  // Запускаем многопоточное выполнение задач, не выполненных через MPI
+  std::vector<std::function<void()>> remaining_tasks;
+
+  if (p1.empty())
+    remaining_tasks.emplace_back([&]() {
+      p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
+    });
+
+  if (p2.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); });
+
+  if (p3.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); });
+
+  if (p4.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
+
+  if (p5.empty())
+    remaining_tasks.emplace_back(
+        [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
+
+  if (p6.empty())
+    remaining_tasks.emplace_back([&]() {
+      p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
+                            num_threads);
+    });
+
+  if (p7.empty())
+    remaining_tasks.emplace_back([&]() {
+      p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
+                            num_threads);
+    });
+
+  // Запускаем многопоточное выполнение оставшихся задач
+  std::vector<std::thread> threads;
+  threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
+  size_t task_index = 0;
+
+  for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
+    if (task_index < remaining_tasks.size()) {
+      threads.emplace_back(remaining_tasks[task_index]);
+      ++task_index;
     }
   }
 
-  // Получаем результаты от других процессов
-  if (rank % 7 != 0) boost::mpi::broadcast(world, p1, 0);
-  if (rank % 7 != 1) boost::mpi::broadcast(world, p2, 1);
-  if (rank % 7 != 2) boost::mpi::broadcast(world, p3, 2);
-  if (rank % 7 != 3) boost::mpi::broadcast(world, p4, 3);
-  if (rank % 7 != 4) boost::mpi::broadcast(world, p5, 4);
-  if (rank % 7 != 5) boost::mpi::broadcast(world, p6, 5);
-  if (rank % 7 != 6) boost::mpi::broadcast(world, p7, 6);
+  while (task_index < remaining_tasks.size()) {
+    remaining_tasks[task_index]();
+    ++task_index;
+  }
 
-  // Если доступных MPI процессов недостаточно, запускаем локальные потоки для оставшихся задач
-  if (world_size < 7) {
-    std::vector<std::function<void()>> remaining_tasks;
-
-    if (p1.empty())
-      remaining_tasks.emplace_back([&]() {
-        p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
-                              num_threads);
-      });
-
-    if (p2.empty())
-      remaining_tasks.emplace_back(
-          [&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); });
-
-    if (p3.empty())
-      remaining_tasks.emplace_back(
-          [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); });
-
-    if (p4.empty())
-      remaining_tasks.emplace_back(
-          [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
-
-    if (p5.empty())
-      remaining_tasks.emplace_back(
-          [&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
-
-    if (p6.empty())
-      remaining_tasks.emplace_back([&]() {
-        p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
-                              num_threads);
-      });
-
-    if (p7.empty())
-      remaining_tasks.emplace_back([&]() {
-        p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
-                              num_threads);
-      });
-
-    // Запускаем многопоточное выполнение оставшихся задач
-    std::vector<std::thread> threads;
-    threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
-    size_t task_index = 0;
-
-    for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
-      if (task_index < remaining_tasks.size()) {
-        threads.emplace_back(remaining_tasks[task_index]);
-        ++task_index;
-      }
-    }
-
-    while (task_index < remaining_tasks.size()) {
-      remaining_tasks[task_index]();
-      ++task_index;
-    }
-
-    for (auto& thread : threads) {
-      if (thread.joinable()) {
-        thread.join();
-      }
+  for (auto& thread : threads) {
+    if (thread.joinable()) {
+      thread.join();
     }
   }
 
