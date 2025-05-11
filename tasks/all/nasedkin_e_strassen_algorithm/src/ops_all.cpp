@@ -415,7 +415,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
                 << std::endl;
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads);
-      std::cout << "Rank " << std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
+      std::cout << "Rank " << rank << ", Thread " << std::this_thread::get_id()
                 << ": p6 computed in thread, size=" << p6.size() << std::endl;
     });
   }
