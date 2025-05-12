@@ -92,7 +92,7 @@ void RunRandomMatrixIdentityTest(int size) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  nasedkin_e_strassen_algorithm_all::StrassenAllãs strassen_task(task_data);
+  nasedkin_e_strassen_algorithm_all::StrassenAll strassen_task(task_data);
   ASSERT_TRUE(strassen_task.Validation());
   strassen_task.PreProcessing();
   strassen_task.Run();
