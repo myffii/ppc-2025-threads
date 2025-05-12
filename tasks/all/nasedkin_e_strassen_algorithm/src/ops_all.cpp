@@ -3,10 +3,9 @@
 #include <algorithm>
 #include <boost/mpi/collectives.hpp>
 #include <boost/mpi/communicator.hpp>
-#include <boost/serialization/vector.hpp>
+#include <boost/mpi/environment.hpp>
 #include <cmath>
 #include <functional>
-#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -56,8 +55,7 @@ bool StrassenAll::ValidationImpl() {
 }
 
 bool StrassenAll::RunImpl() {
-  boost::mpi::communicator world;
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, world);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_);
   return true;
 }
 
@@ -120,11 +118,16 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                                  boost::mpi::communicator& comm) {
+std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
+
+  boost::mpi::environment env;
+  boost::mpi::communicator world;
+  int rank = world.rank();
+  int num_processes = world.size();
 
   int half_size = size / 2;
   int half_size_squared = half_size * half_size;
@@ -138,98 +141,86 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size_squared);
   std::vector<double> b22(half_size_squared);
 
-  SplitMatrix(a, a11, 0, 0, size);
-  SplitMatrix(a, a12, 0, half_size, size);
-  SplitMatrix(a, a21, half_size, 0, size);
-  SplitMatrix(a, a22, half_size, half_size, size);
-
-  SplitMatrix(b, b11, 0, 0, size);
-  SplitMatrix(b, b12, 0, half_size, size);
-  SplitMatrix(b, b21, half_size, 0, size);
-  SplitMatrix(b, b22, half_size, half_size, size);
-
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
-
-  // Распределение задач между процессами
-  int rank = comm.rank();
-  int num_procs = comm.size();
-  const int num_tasks = 7;  // P1–P7
-  std::vector<std::vector<double>> local_results;
-
-  // Отладочный вывод для проверки входных параметров
-  std::cout << "[Rank " << rank << "] StrassenMultiply: size=" << size << ", half_size_squared=" << half_size_squared
-            << std::endl;
-
-  // Выполняем только задачи, соответствующие текущему процессу
-  for (int task_id = rank; task_id < num_tasks; task_id += num_procs) {
-    std::vector<double> result(half_size_squared);
-    switch (task_id) {
-      case 0:
-        result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, comm);
-        break;
-      case 1:
-        result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, comm);
-        break;
-      case 2:
-        result = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, comm);
-        break;
-      case 3:
-        result = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, comm);
-        break;
-      case 4:
-        result = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, comm);
-        break;
-      case 5:
-        result =
-            StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size, comm);
-        break;
-      case 6:
-        result =
-            StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size, comm);
-        break;
-    }
-    local_results.push_back(result);
-    std::cout << "[Rank " << rank << "] Task " << task_id << " completed, result size=" << result.size() << std::endl;
+  if (rank == 0) {
+    SplitMatrix(a, a11, 0, 0, size);
+    SplitMatrix(a, a12, 0, half_size, size);
+    SplitMatrix(a, a21, half_size, 0, size);
+    SplitMatrix(a, a22, half_size, half_size, size);
+    SplitMatrix(b, b11, 0, 0, size);
+    SplitMatrix(b, b12, 0, half_size, size);
+    SplitMatrix(b, b21, half_size, 0, size);
+    SplitMatrix(b, b22, half_size, half_size, size);
   }
 
-  // Инициализируем all_results с правильным размером
-  std::vector<std::vector<double>> all_results(num_tasks, std::vector<double>(half_size_squared));
+  // Broadcasting submatrices to all processes
+  boost::mpi::broadcast(world, a11, 0);
+  boost::mpi::broadcast(world, a12, 0);
+  boost::mpi::broadcast(world, a21, 0);
+  boost::mpi::broadcast(world, a22, 0);
+  boost::mpi::broadcast(world, b11, 0);
+  boost::mpi::broadcast(world, b12, 0);
+  boost::mpi::broadcast(world, b21, 0);
+  boost::mpi::broadcast(world, b22, 0);
 
-  // Копируем локальные результаты
-  int local_idx = 0;
-  for (int task_id = rank; task_id < num_tasks; task_id += num_procs) {
-    if (local_idx < local_results.size()) {
-      all_results[task_id] = local_results[local_idx++];
+  std::vector<std::vector<double>> p(7, std::vector<double>(half_size_squared));
+  std::vector<std::function<void()>> tasks(7);
+
+  tasks[0] = [&]() {
+    p[0] = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+  };
+  tasks[1] = [&]() { p[1] = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); };
+  tasks[2] = [&]() { p[2] = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); };
+  tasks[3] = [&]() { p[3] = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); };
+  tasks[4] = [&]() { p[4] = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); };
+  tasks[5] = [&]() {
+    p[5] = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  };
+  tasks[6] = [&]() {
+    p[6] = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+  };
+
+  // Distribute tasks among processes
+  std::vector<int> task_assignments(7, -1);
+  for (int i = 0; i < 7; ++i) {
+    task_assignments[i] = i % num_processes;
+  }
+
+  // Execute assigned tasks in parallel using threads
+  std::vector<std::thread> threads;
+  int num_threads = ppc::util::GetPPCNumThreads();
+  std::vector<std::function<void()>> local_tasks;
+
+  for (int i = 0; i < 7; ++i) {
+    if (task_assignments[i] == rank) {
+      local_tasks.push_back(tasks[i]);
     }
   }
 
-  // Синхронизируем результаты
-  for (int task_id = 0; task_id < num_tasks; ++task_id) {
-    std::cout << "[Rank " << rank << "] Before broadcast task " << task_id << ", size=" << all_results[task_id].size()
-              << std::endl;
-    boost::mpi::broadcast(comm, all_results[task_id], task_id % num_procs);
-    std::cout << "[Rank " << rank << "] After broadcast task " << task_id << ", size=" << all_results[task_id].size()
-              << std::endl;
+  if (!local_tasks.empty()) {
+    int tasks_per_thread = (local_tasks.size() + num_threads - 1) / num_threads;
+    for (int i = 0; i < num_threads && i * tasks_per_thread < local_tasks.size(); ++i) {
+      threads.emplace_back([&, i, tasks_per_thread]() {
+        for (int j = i * tasks_per_thread; j < (i + 1) * tasks_per_thread && j < local_tasks.size(); ++j) {
+          local_tasks[j]();
+        }
+      });
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
   }
 
-  p1 = all_results[0];
-  p2 = all_results[1];
-  p3 = all_results[2];
-  p4 = all_results[3];
-  p5 = all_results[4];
-  p6 = all_results[5];
-  p7 = all_results[6];
+  // Gather results from all processes
+  for (int i = 0; i < 7; ++i) {
+    boost::mpi::broadcast(world, p[i], task_assignments[i]);
+  }
 
-  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+  std::vector<double> c11 =
+      AddMatrices(SubtractMatrices(AddMatrices(p[0], p[3], half_size), p[4], half_size), p[6], half_size);
+  std::vector<double> c12 = AddMatrices(p[2], p[4], half_size);
+  std::vector<double> c21 = AddMatrices(p[1], p[3], half_size);
+  std::vector<double> c22 =
+      AddMatrices(SubtractMatrices(AddMatrices(p[0], p[2], half_size), p[1], half_size), p[6], half_size);
 
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
