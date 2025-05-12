@@ -1,14 +1,12 @@
 #include <gtest/gtest.h>
 
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/environment.hpp>
 #include <cstdint>
 #include <memory>
 #include <random>
 #include <vector>
 
-#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/task/include/task.hpp"
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(int size) {
@@ -31,9 +29,6 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 }
 
 void RunRandomMatrixTest(int size) {
-  boost::mpi::communicator comm;
-  if (comm.rank() != 0) return;
-
   std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateRandomMatrix(size);
   std::vector<double> out(size * size, 0.0);
@@ -54,9 +49,6 @@ void RunRandomMatrixTest(int size) {
 }
 
 void RunFixedMatrixTest(int size) {
-  boost::mpi::communicator comm;
-  if (comm.rank() != 0) return;
-
   std::vector<double> in_a(size * size);
   std::vector<double> in_b(size * size);
 
@@ -88,9 +80,6 @@ void RunFixedMatrixTest(int size) {
 }
 
 void RunRandomMatrixIdentityTest(int size) {
-  boost::mpi::communicator comm;
-  if (comm.rank() != 0) return;
-
   std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
   std::vector<double> out(size * size, 0.0);
@@ -103,7 +92,7 @@ void RunRandomMatrixIdentityTest(int size) {
   task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
   task_data->outputs_count.emplace_back(out.size());
 
-  nasedkin_e_strassen_algorithm_all::StrassenAll strassen_task(task_data);
+  nasedkin_e_strassen_algorithm_all::StrassenAllãs strassen_task(task_data);
   ASSERT_TRUE(strassen_task.Validation());
   strassen_task.PreProcessing();
   strassen_task.Run();
@@ -115,9 +104,6 @@ void RunRandomMatrixIdentityTest(int size) {
 }
 
 void RunFixedMatrixIdentityTest(int size) {
-  boost::mpi::communicator comm;
-  if (comm.rank() != 0) return;
-
   std::vector<double> in_a(size * size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
 
@@ -148,9 +134,6 @@ void RunFixedMatrixIdentityTest(int size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
-  boost::mpi::communicator comm;
-  if (comm.rank() != 0) return;
-
   auto task_data = std::make_shared<ppc::core::TaskData>();
   std::vector<double> a(0);
   std::vector<double> b(0);
