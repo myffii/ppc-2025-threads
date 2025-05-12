@@ -4,6 +4,7 @@
 #include <boost/mpi.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/environment.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
 #include <mutex>
