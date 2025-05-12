@@ -194,30 +194,43 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
                           num_threads);
   });
 
-  // Каждый процесс выполняет задачу, соответствующую его rank
-  if (rank < tasks.size()) {
-    tasks[rank]();
+  // Циклическое распределение задач по процессам
+  std::vector<std::function<void()>> my_tasks;
+  for (std::vector<std::function<void()>>::size_type i =
+           static_cast<std::vector<std::function<void()>>::size_type>(rank);
+       i < tasks.size(); i += world_size) {
+    my_tasks.push_back(tasks[i]);
+  }
+
+  // Выполняем назначенные задачи
+  for (auto& task : my_tasks) {
+    task();
   }
 
   // Синхронизируем результаты через broadcast
-  if (world_size > 0) boost::mpi::broadcast(world, p1, world_size > 0 && tasks[0] ? 0 : rank);
-  if (world_size > 1) boost::mpi::broadcast(world, p2, world_size > 1 && tasks[1] ? 1 : rank);
-  if (world_size > 2) boost::mpi::broadcast(world, p3, world_size > 2 && tasks[2] ? 2 : rank);
-  if (world_size > 3) boost::mpi::broadcast(world, p4, world_size > 3 && tasks[3] ? 3 : rank);
-  if (world_size > 4) boost::mpi::broadcast(world, p5, world_size > 4 && tasks[4] ? 4 : rank);
-  if (world_size > 5) boost::mpi::broadcast(world, p6, world_size > 5 && tasks[5] ? 5 : rank);
-  if (world_size > 6) boost::mpi::broadcast(world, p7, world_size > 6 && tasks[6] ? 6 : rank);
+  if (world_size > 0) boost::mpi::broadcast(world, p1, world_size > 0 ? 0 : rank);
+  if (world_size > 1) boost::mpi::broadcast(world, p2, world_size > 1 ? 1 : rank);
+  if (world_size > 2) boost::mpi::broadcast(world, p3, world_size > 2 ? 2 : rank);
+  if (world_size > 3) boost::mpi::broadcast(world, p4, world_size > 3 ? 3 : rank);
+  if (world_size > 4) boost::mpi::broadcast(world, p5, world_size > 4 ? 4 : rank);
+  if (world_size > 5) boost::mpi::broadcast(world, p6, world_size > 5 ? 5 : rank);
+  if (world_size > 6) boost::mpi::broadcast(world, p7, world_size > 6 ? 6 : rank);
 
   // Оставшиеся задачи выполняются многопоточно
   std::vector<std::function<void()>> remaining_tasks;
-  for (int i = world_size; i < tasks.size(); ++i) {
-    remaining_tasks.push_back(tasks[i]);
+  for (std::vector<std::function<void()>>::size_type i =
+           static_cast<std::vector<std::function<void()>>::size_type>(world_size);
+       i < tasks.size(); ++i) {
+    // Пропускаем задачи, уже выполненные текущим процессом
+    if (i % world_size != static_cast<std::vector<std::function<void()>>::size_type>(rank)) {
+      remaining_tasks.push_back(tasks[i]);
+    }
   }
 
   // Запускаем многопоточное выполнение оставшихся задач
   std::vector<std::thread> threads;
   threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
-  size_t task_index = 0;
+  std::vector<std::function<void()>>::size_type task_index = 0;
 
   for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
     if (task_index < remaining_tasks.size()) {
