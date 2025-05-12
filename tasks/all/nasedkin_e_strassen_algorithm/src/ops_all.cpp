@@ -6,6 +6,7 @@
 #include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -161,10 +162,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   const int num_tasks = 7;  // P1–P7
   std::vector<std::vector<double>> local_results;
 
-  // Определяем, какие задачи выполняет текущий процесс
+  // Отладочный вывод для проверки входных параметров
+  std::cout << "[Rank " << rank << "] StrassenMultiply: size=" << size << ", half_size_squared=" << half_size_squared
+            << std::endl;
+
+  // Выполняем только задачи, соответствующие текущему процессу
   for (int task_id = rank; task_id < num_tasks; task_id += num_procs) {
     std::vector<double> result(half_size_squared);
-    // Выполняем задачу
     switch (task_id) {
       case 0:
         result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, comm);
@@ -191,19 +195,27 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         break;
     }
     local_results.push_back(result);
+    std::cout << "[Rank " << rank << "] Task " << task_id << " completed, result size=" << result.size() << std::endl;
   }
 
-  // Инициализируем all_results с правильным размером для всех задач
+  // Инициализируем all_results с правильным размером
   std::vector<std::vector<double>> all_results(num_tasks, std::vector<double>(half_size_squared));
 
-  // Копируем локальные результаты в all_results
+  // Копируем локальные результаты
+  int local_idx = 0;
   for (int task_id = rank; task_id < num_tasks; task_id += num_procs) {
-    all_results[task_id] = local_results[task_id / num_procs];
+    if (local_idx < local_results.size()) {
+      all_results[task_id] = local_results[local_idx++];
+    }
   }
 
-  // Синхронизируем результаты между процессами
+  // Синхронизируем результаты
   for (int task_id = 0; task_id < num_tasks; ++task_id) {
+    std::cout << "[Rank " << rank << "] Before broadcast task " << task_id << ", size=" << all_results[task_id].size()
+              << std::endl;
     boost::mpi::broadcast(comm, all_results[task_id], task_id % num_procs);
+    std::cout << "[Rank " << rank << "] After broadcast task " << task_id << ", size=" << all_results[task_id].size()
+              << std::endl;
   }
 
   p1 = all_results[0];
