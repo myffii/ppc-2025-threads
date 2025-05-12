@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "core/task/include/task.hpp"
 #include "core/util/include/util.hpp"
