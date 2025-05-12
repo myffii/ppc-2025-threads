@@ -4,6 +4,7 @@
 #include <boost/mpi/collectives.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/environment.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
 #include <thread>
@@ -187,7 +188,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Execute assigned tasks in parallel using threads
   std::vector<std::thread> threads;
-  int num_threads = ppc::util::GetPPCNumThreads();
+  size_t num_threads = static_cast<size_t>(ppc::util::GetPPCNumThreads());
   std::vector<std::function<void()>> local_tasks;
 
   for (int i = 0; i < 7; ++i) {
@@ -197,10 +198,10 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   if (!local_tasks.empty()) {
-    int tasks_per_thread = (local_tasks.size() + num_threads - 1) / num_threads;
-    for (int i = 0; i < num_threads && i * tasks_per_thread < local_tasks.size(); ++i) {
+    size_t tasks_per_thread = (local_tasks.size() + num_threads - 1) / num_threads;
+    for (size_t i = 0; i < num_threads && i * tasks_per_thread < local_tasks.size(); ++i) {
       threads.emplace_back([&, i, tasks_per_thread]() {
-        for (int j = i * tasks_per_thread; j < (i + 1) * tasks_per_thread && j < local_tasks.size(); ++j) {
+        for (size_t j = i * tasks_per_thread; j < (i + 1) * tasks_per_thread && j < local_tasks.size(); ++j) {
           local_tasks[j]();
         }
       });
