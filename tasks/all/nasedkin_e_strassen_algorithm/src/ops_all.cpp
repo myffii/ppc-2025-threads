@@ -164,11 +164,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   // Определяем, какие задачи выполняет текущий процесс
   for (int task_id = rank; task_id < num_tasks; task_id += num_procs) {
     std::vector<double> result(half_size_squared);
-    // Используем потоки для рекурсивного вызова StrassenMultiply
-    int num_threads = ppc::util::GetPPCNumThreads();
-    std::vector<std::thread> threads;
-    threads.reserve(num_threads);
-
+    // Выполняем задачу
     switch (task_id) {
       case 0:
         result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, comm);
@@ -197,22 +193,16 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     local_results.push_back(result);
   }
 
-  // Собираем результаты от всех процессов
-  std::vector<std::vector<double>> all_results(num_tasks);
-  if (rank == 0) {
-    all_results[0] = p1;
-    all_results[1] = p2;
-    all_results[2] = p3;
-    all_results[3] = p4;
-    all_results[4] = p5;
-    all_results[5] = p6;
-    all_results[6] = p7;
+  // Инициализируем all_results с правильным размером для всех задач
+  std::vector<std::vector<double>> all_results(num_tasks, std::vector<double>(half_size_squared));
+
+  // Копируем локальные результаты в all_results
+  for (int task_id = rank; task_id < num_tasks; task_id += num_procs) {
+    all_results[task_id] = local_results[task_id / num_procs];
   }
 
+  // Синхронизируем результаты между процессами
   for (int task_id = 0; task_id < num_tasks; ++task_id) {
-    if (task_id % num_procs == rank) {
-      all_results[task_id] = local_results[task_id / num_procs];
-    }
     boost::mpi::broadcast(comm, all_results[task_id], task_id % num_procs);
   }
 
