@@ -244,14 +244,16 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Синхронизируем результаты через broadcast
   if (world_size > 0) {
-    if (rank == 0)
-      boost::mpi::broadcast(world, p1, 0);
-    else if (world_size > 1 && rank == 1)
+    boost::mpi::broadcast(world, p1, 0);
+    if (world_size > 1) {
       boost::mpi::broadcast(world, p2, 1);
-    else if (world_size > 2 && rank == 2)
+    }
+    if (world_size > 2) {
       boost::mpi::broadcast(world, p3, 2);
-    else if (world_size > 3 && rank == 3)
+    }
+    if (world_size > 3) {
       boost::mpi::broadcast(world, p4, 3);
+    }
   }
 
   // Отладочный вывод: значения p1–p7 после broadcast
@@ -323,11 +325,19 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
 
   // Синхронизируем p3–p7 (или p4–p7) через broadcast
-  if (world_size <= 2 && tasks.size() > 2) boost::mpi::broadcast(world, p3, 0);
-  if (world_size <= 3 && tasks.size() > 3) boost::mpi::broadcast(world, p4, 0);
-  if (tasks.size() > 4) boost::mpi::broadcast(world, p5, 0);
-  if (tasks.size() > 5) boost::mpi::broadcast(world, p6, 0);
-  if (tasks.size() > 6) boost::mpi::broadcast(world, p7, 0);
+  if (rank == 0) {
+    if (world_size <= 2) boost::mpi::broadcast(world, p3, 0);
+    if (world_size <= 3) boost::mpi::broadcast(world, p4, 0);
+    boost::mpi::broadcast(world, p5, 0);
+    boost::mpi::broadcast(world, p6, 0);
+    boost::mpi::broadcast(world, p7, 0);
+  } else {
+    if (world_size <= 2) boost::mpi::broadcast(world, p3, 0);
+    if (world_size <= 3) boost::mpi::broadcast(world, p4, 0);
+    boost::mpi::broadcast(world, p5, 0);
+    boost::mpi::broadcast(world, p6, 0);
+    boost::mpi::broadcast(world, p7, 0);
+  }
 
   // Отладочный вывод: значения p1–p7 после broadcast многопоточных задач
   std::cout << "[DEBUG] Process " << rank << " after broadcast of remaining tasks:" << std::endl;
