@@ -58,6 +58,18 @@ bool StrassenAll::ValidationImpl() {
 }
 
 bool StrassenAll::RunImpl() {
+  boost::mpi::communicator world;
+  int rank = world.rank();
+
+  // Синхронизируем входные матрицы
+  boost::mpi::broadcast(world, input_matrix_a_, 0);
+  boost::mpi::broadcast(world, input_matrix_b_, 0);
+
+  // Отладочный вывод: входные данные после синхронизации
+  std::cout << "[DEBUG] Process " << rank << ": After input synchronization: "
+            << "input_matrix_a_[0] = " << (input_matrix_a_.empty() ? 0.0 : input_matrix_a_[0])
+            << ", input_matrix_b_[0] = " << (input_matrix_b_.empty() ? 0.0 : input_matrix_b_[0]) << std::endl;
+
   int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
   output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads);
   return true;
@@ -178,13 +190,14 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
             << ", a21 = " << a21.size() << ", a22 = " << a22.size() << ", b11 = " << b11.size()
             << ", b12 = " << b12.size() << ", b21 = " << b21.size() << ", b22 = " << b22.size() << std::endl;
 
-  std::vector<double> p1(half_size_squared);
-  std::vector<double> p2(half_size_squared);
-  std::vector<double> p3(half_size_squared);
-  std::vector<double> p4(half_size_squared);
-  std::vector<double> p5(half_size_squared);
-  std::vector<double> p6(half_size_squared);
-  std::vector<double> p7(half_size_squared);
+  // Инициализация p1–p7 в отдельных строках
+  std::vector<double> p1(half_size_squared, 0.0);
+  std::vector<double> p2(half_size_squared, 0.0);
+  std::vector<double> p3(half_size_squared, 0.0);
+  std::vector<double> p4(half_size_squared, 0.0);
+  std::vector<double> p5(half_size_squared, 0.0);
+  std::vector<double> p6(half_size_squared, 0.0);
+  std::vector<double> p7(half_size_squared, 0.0);
 
   // Определяем задачи
   std::vector<std::function<void()>> tasks;
