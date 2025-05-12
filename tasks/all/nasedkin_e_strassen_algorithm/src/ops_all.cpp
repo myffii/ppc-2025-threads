@@ -124,7 +124,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
-  // Инициализация MPI, если еще не инициализирован
+  // Инициализация MPI
   boost::mpi::environment* env = nullptr;
   if (!boost::mpi::environment::initialized()) {
     static int argc = 0;
@@ -136,8 +136,14 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int rank = world.rank();
   int world_size = world.size();
 
-  // Базовый случай или слишком маленькая матрица для распараллеливания
+  // Отладочный вывод: входные параметры
+  std::cout << "[DEBUG] Process " << rank << ": Starting StrassenMultiply with size = " << size
+            << ", a[0] = " << (a.empty() ? 0.0 : a[0]) << ", b[0] = " << (b.empty() ? 0.0 : b[0])
+            << ", num_threads = " << num_threads << std::endl;
+
+  // Базовый случай
   if (size <= 32 || world_size <= 1) {
+    std::cout << "[DEBUG] Process " << rank << ": Using StandardMultiply for size = " << size << std::endl;
     if (env != nullptr) {
       delete env;
     }
@@ -147,6 +153,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int half_size = size / 2;
   int half_size_squared = half_size * half_size;
 
+  // Инициализация подматриц
   std::vector<double> a11(half_size_squared);
   std::vector<double> a12(half_size_squared);
   std::vector<double> a21(half_size_squared);
@@ -156,16 +163,20 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size_squared);
   std::vector<double> b22(half_size_squared);
 
-  // Разделяем матрицы на подматрицы
+  // Разделяем матрицы
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
   SplitMatrix(a, a22, half_size, half_size, size);
-
   SplitMatrix(b, b11, 0, 0, size);
   SplitMatrix(b, b12, 0, half_size, size);
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
+
+  // Отладочный вывод: размеры подматриц
+  std::cout << "[DEBUG] Process " << rank << ": Submatrices sizes: a11 = " << a11.size() << ", a12 = " << a12.size()
+            << ", a21 = " << a21.size() << ", a22 = " << a22.size() << ", b11 = " << b11.size()
+            << ", b12 = " << b12.size() << ", b21 = " << b21.size() << ", b22 = " << b22.size() << std::endl;
 
   std::vector<double> p1(half_size_squared);
   std::vector<double> p2(half_size_squared);
@@ -175,7 +186,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Распределяем задачи по процессам
+  // Определяем задачи
   std::vector<std::function<void()>> tasks;
   tasks.emplace_back([&]() {
     p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
@@ -195,100 +206,149 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
                           num_threads);
   });
 
-  // Ограничиваем MPI-задачи до p1–p4
-  const std::vector<std::function<void()>>::size_type max_mpi_tasks = 4;
+  // Распределяем задачи по процессам
   std::vector<std::function<void()>> my_tasks;
-  for (std::vector<std::function<void()>>::size_type i =
-           static_cast<std::vector<std::function<void()>>::size_type>(rank);
-       i < std::min(max_mpi_tasks, tasks.size()); i += world_size) {
-    my_tasks.push_back(tasks[i]);
-  }
-
-  // Отслеживаем, какой процесс выполнил какую задачу
-  std::vector<int> task_owners(tasks.size(), -1);
-  for (std::vector<std::function<void()>>::size_type i = 0; i < std::min(max_mpi_tasks, tasks.size()); ++i) {
-    task_owners[i] = static_cast<int>(i % world_size);
-  }
-
-  // Отладочный вывод: какие задачи выполняет процесс
-  if (rank == 0) {
-    std::cout << "[DEBUG] Process " << rank << " assigned tasks: ";
-    for (std::vector<std::function<void()>>::size_type i = rank; i < std::min(max_mpi_tasks, tasks.size());
-         i += world_size) {
-      std::cout << "p" << (i + 1) << " ";
+  if (rank < static_cast<int>(tasks.size()) && rank < world_size) {
+    if (rank < std::min(world_size, static_cast<int>(tasks.size()))) {
+      my_tasks.push_back(tasks[rank]);
     }
-    std::cout << std::endl;
   }
+
+  // Отладочный вывод: назначенные задачи
+  std::cout << "[DEBUG] Process " << rank << " assigned tasks: ";
+  if (my_tasks.empty()) {
+    std::cout << "none";
+  } else {
+    for (std::size_t i = 0; i < tasks.size(); ++i) {
+      if (std::find(my_tasks.begin(), my_tasks.end(), tasks[i]) != my_tasks.end()) {
+        std::cout << "p" << (i + 1) << " ";
+      }
+    }
+  }
+  std::cout << std::endl;
 
   // Выполняем назначенные задачи
   for (auto& task : my_tasks) {
     task();
   }
 
+  // Отладочный вывод: значения p1–p7 после выполнения MPI-задач
+  std::cout << "[DEBUG] Process " << rank << " after executing MPI tasks:" << std::endl;
+  std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
+  std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
+  std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
+  std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
+  std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
+  std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
+  std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
+
   // Синхронизируем результаты через broadcast
-  if (task_owners[0] >= 0) boost::mpi::broadcast(world, p1, task_owners[0]);
-  if (task_owners[1] >= 0) boost::mpi::broadcast(world, p2, task_owners[1]);
-  if (task_owners[2] >= 0) boost::mpi::broadcast(world, p3, task_owners[2]);
-  if (task_owners[3] >= 0) boost::mpi::broadcast(world, p4, task_owners[3]);
-  if (task_owners.size() > 4 && task_owners[4] >= 0) boost::mpi::broadcast(world, p5, task_owners[4]);
-  if (task_owners.size() > 5 && task_owners[5] >= 0) boost::mpi::broadcast(world, p6, task_owners[5]);
-  if (task_owners.size() > 6 && task_owners[6] >= 0) boost::mpi::broadcast(world, p7, task_owners[6]);
+  if (world_size > 0) {
+    if (rank == 0)
+      boost::mpi::broadcast(world, p1, 0);
+    else if (world_size > 1 && rank == 1)
+      boost::mpi::broadcast(world, p2, 1);
+    else if (world_size > 2 && rank == 2)
+      boost::mpi::broadcast(world, p3, 2);
+    else if (world_size > 3 && rank == 3)
+      boost::mpi::broadcast(world, p4, 3);
+  }
 
   // Отладочный вывод: значения p1–p7 после broadcast
-  if (rank == 0) {
-    std::cout << "[DEBUG] After broadcast on process " << rank << ":" << std::endl;
-    std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
-    std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
-    std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
-    std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
-    std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
-    std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
-    std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
-  }
+  std::cout << "[DEBUG] Process " << rank << " after broadcast of MPI tasks:" << std::endl;
+  std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
+  std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
+  std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
+  std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
+  std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
+  std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
+  std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
 
-  // Оставшиеся задачи (p5–p7) выполняются многопоточно
+  // Оставшиеся задачи (p3–p7 или p4–p7) выполняются многопоточно на процессе 0
   std::vector<std::function<void()>> remaining_tasks;
-  for (std::vector<std::function<void()>>::size_type i = max_mpi_tasks; i < tasks.size(); ++i) {
-    remaining_tasks.push_back(tasks[i]);
+  if (rank == 0) {
+    for (std::size_t i = world_size; i < tasks.size(); ++i) {
+      remaining_tasks.push_back(tasks[i]);
+    }
   }
 
-  // Отладочный вывод: какие задачи выполняются многопоточно
-  if (rank == 0 && !remaining_tasks.empty()) {
+  // Отладочный вывод: многопоточные задачи
+  if (rank == 0) {
     std::cout << "[DEBUG] Process " << rank << " running remaining tasks (multithreaded): ";
-    for (std::vector<std::function<void()>>::size_type i = max_mpi_tasks; i < tasks.size(); ++i) {
-      std::cout << "p" << (i + 1) << " ";
+    if (remaining_tasks.empty()) {
+      std::cout << "none";
+    } else {
+      for (std::size_t i = world_size; i < tasks.size(); ++i) {
+        std::cout << "p" << (i + 1) << " ";
+      }
     }
     std::cout << std::endl;
   }
 
-  // Запускаем многопоточное выполнение оставшихся задач
-  std::vector<std::thread> threads;
-  threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
-  std::vector<std::function<void()>>::size_type task_index = 0;
+  // Выполняем многопоточные задачи
+  if (rank == 0 && !remaining_tasks.empty()) {
+    std::vector<std::thread> threads;
+    threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
+    std::size_t task_index = 0;
 
-  for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
-    if (task_index < remaining_tasks.size()) {
-      threads.emplace_back(remaining_tasks[task_index]);
+    for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
+      if (task_index < remaining_tasks.size()) {
+        threads.emplace_back(remaining_tasks[task_index]);
+        ++task_index;
+      }
+    }
+
+    while (task_index < remaining_tasks.size()) {
+      remaining_tasks[task_index]();
       ++task_index;
     }
-  }
 
-  while (task_index < remaining_tasks.size()) {
-    remaining_tasks[task_index]();
-    ++task_index;
-  }
-
-  for (auto& thread : threads) {
-    if (thread.joinable()) {
-      thread.join();
+    for (auto& thread : threads) {
+      if (thread.joinable()) {
+        thread.join();
+      }
     }
   }
+
+  // Отладочный вывод: значения p1–p7 после многопоточного выполнения
+  std::cout << "[DEBUG] Process " << rank << " after multithreading:" << std::endl;
+  std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
+  std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
+  std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
+  std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
+  std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
+  std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
+  std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
+
+  // Синхронизируем p3–p7 (или p4–p7) через broadcast
+  if (world_size <= 2 && tasks.size() > 2) boost::mpi::broadcast(world, p3, 0);
+  if (world_size <= 3 && tasks.size() > 3) boost::mpi::broadcast(world, p4, 0);
+  if (tasks.size() > 4) boost::mpi::broadcast(world, p5, 0);
+  if (tasks.size() > 5) boost::mpi::broadcast(world, p6, 0);
+  if (tasks.size() > 6) boost::mpi::broadcast(world, p7, 0);
+
+  // Отладочный вывод: значения p1–p7 после broadcast многопоточных задач
+  std::cout << "[DEBUG] Process " << rank << " after broadcast of remaining tasks:" << std::endl;
+  std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
+  std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
+  std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
+  std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
+  std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
+  std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
+  std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
 
   // Комбинируем результаты
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+
+  // Отладочный вывод: промежуточные подматрицы
+  std::cout << "[DEBUG] Process " << rank << " intermediate submatrices:" << std::endl;
+  std::cout << "c11[0] = " << (c11.empty() ? 0.0 : c11[0]) << ", size = " << c11.size() << std::endl;
+  std::cout << "c12[0] = " << (c12.empty() ? 0.0 : c12[0]) << ", size = " << c12.size() << std::endl;
+  std::cout << "c21[0] = " << (c21.empty() ? 0.0 : c21[0]) << ", size = " << c21.size() << std::endl;
+  std::cout << "c22[0] = " << (c22.empty() ? 0.0 : c22[0]) << ", size = " << c22.size() << std::endl;
 
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
@@ -297,12 +357,10 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   MergeMatrix(result, c22, half_size, half_size, size);
 
   // Отладочный вывод: финальный результат
-  if (rank == 0) {
-    std::cout << "[DEBUG] Final result on process " << rank << ": result[0] = " << result[0]
-              << ", size = " << result.size() << std::endl;
-  }
+  std::cout << "[DEBUG] Process " << rank << ": Final result: result[0] = " << result[0] << ", size = " << result.size()
+            << std::endl;
 
-  // Очищаем созданный объект environment, если он был создан
+  // Очищаем MPI environment
   if (env != nullptr) {
     delete env;
   }
