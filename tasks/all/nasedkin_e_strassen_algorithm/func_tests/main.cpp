@@ -30,6 +30,7 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 }
 
 void RunRandomMatrixTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   int rank = world.rank();
 
@@ -60,6 +61,7 @@ void RunRandomMatrixTest(int size) {
 }
 
 void RunFixedMatrixTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   int rank = world.rank();
 
@@ -103,6 +105,7 @@ void RunFixedMatrixTest(int size) {
 }
 
 void RunRandomMatrixIdentityTest(int size) {
+  boost::mpi::environment env;
   boost::mpi::communicator world;
   int rank = world.rank();
 
@@ -135,6 +138,7 @@ void RunRandomMatrixIdentityTest(int size) {
 }
 
 void RunFixedMatrixIdentityTest(int size) {
+  boost::mpi::environment env;
   std::vector<double> in_a(size * size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
 
@@ -165,6 +169,7 @@ void RunFixedMatrixIdentityTest(int size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
+  boost::mpi::environment env;
   auto task_data = std::make_shared<ppc::core::TaskData>();
   std::vector<double> a(0);
   std::vector<double> b(0);
