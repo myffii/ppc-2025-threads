@@ -11,7 +11,6 @@
 #include "core/perf/include/perf.hpp"
 #include "core/task/include/task.hpp"
 
-
 namespace {
 std::vector<double> GenerateRandomMatrix(size_t size) {
   std::random_device rd;
