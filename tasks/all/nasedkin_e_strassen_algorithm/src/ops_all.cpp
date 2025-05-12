@@ -7,7 +7,6 @@
 #include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
-#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -164,21 +163,23 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   boost::mpi::broadcast(world, b22, 0);
 
   std::vector<std::vector<double>> p(7, std::vector<double>(half_size_squared));
-  std::mutex p_mutex;
 
   // Define the 7 tasks
-  auto tasks = {
-      [&]() { p[0] = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size); },
-      [&]() { p[1] = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); },
-      [&]() { p[2] = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); },
-      [&]() { p[3] = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); },
-      [&]() { p[4] = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); },
-      [&]() {
-        p[5] = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-      },
-      [&]() {
-        p[6] = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-      }};
+  std::vector<std::function<void()>> tasks;
+  tasks.reserve(7);
+  tasks.push_back([&]() {
+    p[0] = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+  });
+  tasks.push_back([&]() { p[1] = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size); });
+  tasks.push_back([&]() { p[2] = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size); });
+  tasks.push_back([&]() { p[3] = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size); });
+  tasks.push_back([&]() { p[4] = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size); });
+  tasks.push_back([&]() {
+    p[5] = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  });
+  tasks.push_back([&]() {
+    p[6] = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+  });
 
   // Distribute tasks among processes
   std::vector<std::function<void()>> local_tasks;
