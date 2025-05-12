@@ -208,21 +208,21 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Распределяем задачи по процессам
   std::vector<std::function<void()>> my_tasks;
+  std::vector<std::size_t> my_task_indices;
   if (rank < static_cast<int>(tasks.size()) && rank < world_size) {
     if (rank < std::min(world_size, static_cast<int>(tasks.size()))) {
       my_tasks.push_back(tasks[rank]);
+      my_task_indices.push_back(rank);
     }
   }
 
   // Отладочный вывод: назначенные задачи
   std::cout << "[DEBUG] Process " << rank << " assigned tasks: ";
-  if (my_tasks.empty()) {
+  if (my_task_indices.empty()) {
     std::cout << "none";
   } else {
-    for (std::size_t i = 0; i < tasks.size(); ++i) {
-      if (std::find(my_tasks.begin(), my_tasks.end(), tasks[i]) != my_tasks.end()) {
-        std::cout << "p" << (i + 1) << " ";
-      }
+    for (std::size_t idx : my_task_indices) {
+      std::cout << "p" << (idx + 1) << " ";
     }
   }
   std::cout << std::endl;
@@ -266,20 +266,22 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Оставшиеся задачи (p3–p7 или p4–p7) выполняются многопоточно на процессе 0
   std::vector<std::function<void()>> remaining_tasks;
+  std::vector<std::size_t> remaining_task_indices;
   if (rank == 0) {
     for (std::size_t i = world_size; i < tasks.size(); ++i) {
       remaining_tasks.push_back(tasks[i]);
+      remaining_task_indices.push_back(i);
     }
   }
 
   // Отладочный вывод: многопоточные задачи
   if (rank == 0) {
     std::cout << "[DEBUG] Process " << rank << " running remaining tasks (multithreaded): ";
-    if (remaining_tasks.empty()) {
+    if (remaining_task_indices.empty()) {
       std::cout << "none";
     } else {
-      for (std::size_t i = world_size; i < tasks.size(); ++i) {
-        std::cout << "p" << (i + 1) << " ";
+      for (std::size_t idx : remaining_task_indices) {
+        std::cout << "p" << (idx + 1) << " ";
       }
     }
     std::cout << std::endl;
