@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <boost/mpi.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -25,12 +26,26 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
-  constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
+  boost::mpi::communicator world;
+  int rank = world.rank();
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  constexpr size_t kMatrixSize = 512;
+  std::vector<double> in_a(kMatrixSize * kMatrixSize);
+  std::vector<double> in_b(kMatrixSize * kMatrixSize);
+  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
+  std::vector<double> expected(kMatrixSize * kMatrixSize);
+
+  // Генерация матриц и ожидаемого результата только на процессе 0
+  if (rank == 0) {
+    in_a = GenerateRandomMatrix(kMatrixSize);
+    in_b = GenerateRandomMatrix(kMatrixSize);
+    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  }
+
+  // Синхронизация in_a, in_b и expected на все процессы
+  boost::mpi::broadcast(world, in_a, 0);
+  boost::mpi::broadcast(world, in_b, 0);
+  boost::mpi::broadcast(world, expected, 0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -62,12 +77,26 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
-  constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
+  boost::mpi::communicator world;
+  int rank = world.rank();
 
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  constexpr size_t kMatrixSize = 512;
+  std::vector<double> in_a(kMatrixSize * kMatrixSize);
+  std::vector<double> in_b(kMatrixSize * kMatrixSize);
+  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
+  std::vector<double> expected(kMatrixSize * kMatrixSize);
+
+  // Генерация матриц и ожидаемого результата только на процессе 0
+  if (rank == 0) {
+    in_a = GenerateRandomMatrix(kMatrixSize);
+    in_b = GenerateRandomMatrix(kMatrixSize);
+    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  }
+
+  // Синхронизация in_a, in_b и expected на все процессы
+  boost::mpi::broadcast(world, in_a, 0);
+  boost::mpi::broadcast(world, in_b, 0);
+  boost::mpi::broadcast(world, expected, 0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
