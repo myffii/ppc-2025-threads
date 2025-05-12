@@ -2,6 +2,7 @@
 
 #include <utility>
 #include <vector>
+#include <boost/mpi/communicator.hpp>
 
 #include "core/task/include/task.hpp"
 #include "core/util/include/util.hpp"
