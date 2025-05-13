@@ -167,6 +167,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::cout << "[DEBUG] Rank " << world.rank() << ": world_size = " << world_size
             << ", remaining_tasks for threads = " << remaining_tasks << std::endl;
 
+  if (world_size < 2 && world.rank() == 0) {
+    std::cerr << "[ERROR] Rank 0: Insufficient number of processes (" << world_size
+              << "). At least 2 processes required for MPI communication." << std::endl;
+    world.barrier();
+    throw std::runtime_error("Insufficient number of MPI processes");
+  }
+
   int num_threads = ppc::util::GetPPCNumThreads();
   std::cout << "[DEBUG] Rank " << world.rank() << ": Number of threads = " << num_threads << std::endl;
 
@@ -283,6 +290,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     std::cout << "[DEBUG] Rank 0: received_results initialized, size = " << received_results.size()
               << ", inner size = " << received_results[0].size() << std::endl;
     for (int i = 1; i < world_size && i < total_tasks; ++i) {
+      std::cout << "[DEBUG] Rank 0: Waiting to receive p" << i + 1 << " from rank " << i << std::endl;
       world.recv(i, i, received_results[i]);
       std::cout << "[DEBUG] Rank 0: Received p" << i + 1 << " from rank " << i << std::endl;
     }
@@ -310,31 +318,38 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
       }
     }
   } else if (world.rank() < total_tasks) {
-    std::cout << "[DEBUG] Rank " << world.rank() << ": Sending result for p" << world.rank() + 1 << " to rank 0"
-              << std::endl;
+    std::cout << "[DEBUG] Rank " << world.rank() << ": Preparing to send result for p" << world.rank() + 1
+              << " to rank 0" << std::endl;
     switch (world.rank()) {
       case 1:
+        std::cout << "[DEBUG] Rank 1: Sending p2, size = " << p2.size() << std::endl;
         world.send(0, 1, p2);
         break;
       case 2:
+        std::cout << "[DEBUG] Rank 2: Sending p3, size = " << p3.size() << std::endl;
         world.send(0, 2, p3);
         break;
       case 3:
+        std::cout << "[DEBUG] Rank 3: Sending p4, size = " << p4.size() << std::endl;
         world.send(0, 3, p4);
         break;
       case 4:
+        std::cout << "[DEBUG] Rank 4: Sending p5, size = " << p5.size() << std::endl;
         world.send(0, 4, p5);
         break;
       case 5:
+        std::cout << "[DEBUG] Rank 5: Sending p6, size = " << p6.size() << std::endl;
         world.send(0, 5, p6);
         break;
       case 6:
+        std::cout << "[DEBUG] Rank 6: Sending p7, size = " << p7.size() << std::endl;
         world.send(0, 6, p7);
         break;
     }
     std::cout << "[DEBUG] Rank " << world.rank() << ": Send completed" << std::endl;
   }
 
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Approaching MPI barrier" << std::endl;
   world.barrier();
   std::cout << "[DEBUG] Rank " << world.rank() << ": Passed MPI barrier" << std::endl;
 
