@@ -163,7 +163,6 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   const int total_tasks = 7;
   int world_size = world.size();
   if (world_size > total_tasks) world_size = total_tasks;
-  int tasks_per_process = 1;
   int remaining_tasks = total_tasks - world_size;
 
   std::cout << "[DEBUG] Rank " << world.rank() << ": world_size = " << world_size
