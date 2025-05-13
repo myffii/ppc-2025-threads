@@ -145,7 +145,6 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
   SplitMatrix(a, a22, half_size, half_size, size);
-
   SplitMatrix(b, b11, 0, 0, size);
   SplitMatrix(b, b12, 0, half_size, size);
   SplitMatrix(b, b21, half_size, 0, size);
@@ -249,10 +248,9 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  // Сбор результатов с использованием неблокирующих операций
-  std::vector<boost::mpi::request> reqs;
+  // Сбор результатов с использованием блокирующих операций
   if (world.rank() == 0) {
-    std::cout << "[DEBUG] Rank 0: Collecting results" << std::endl;
+    std::cout << "[DEBUG] Rank 0: Collecting results, total_tasks = " << total_tasks << std::endl;
     // Присваиваем результаты из потоков
     for (int i = 0; i < remaining_tasks; ++i) {
       int task_id = world_size + i;
@@ -280,21 +278,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
           break;
       }
     }
-    // Инициация получения результатов от других процессов
+    // Получение результатов от других процессов
     std::vector<std::vector<double>> received_results(total_tasks, std::vector<double>(half_size_squared));
+    std::cout << "[DEBUG] Rank 0: received_results initialized, size = " << received_results.size()
+              << ", inner size = " << received_results[0].size() << std::endl;
     for (int i = 1; i < world_size && i < total_tasks; ++i) {
-      reqs.push_back(world.irecv(i, i, received_results[i]));
-      std::cout << "[DEBUG] Rank 0: Initiated irecv for p" << i + 1 << " from rank " << i << std::endl;
+      world.recv(i, i, received_results[i]);
+      std::cout << "[DEBUG] Rank 0: Received p" << i + 1 << " from rank " << i << std::endl;
     }
-    // Ожидание завершения всех запросов
-    boost::mpi::wait_all(reqs.begin(), reqs.end());
-    std::cout << "[DEBUG] Rank 0: All irecv completed" << std::endl;
     // Присваивание полученных результатов
     for (int i = 1; i < world_size && i < total_tasks; ++i) {
       switch (i) {
-        case 0:
-          p1 = received_results[i];
-          break;
         case 1:
           p2 = received_results[i];
           break;
@@ -319,30 +313,26 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     std::cout << "[DEBUG] Rank " << world.rank() << ": Sending result for p" << world.rank() + 1 << " to rank 0"
               << std::endl;
     switch (world.rank()) {
-      case 0:
-        reqs.push_back(world.isend(0, 0, p1));
-        break;
       case 1:
-        reqs.push_back(world.isend(0, 1, p2));
+        world.send(0, 1, p2);
         break;
       case 2:
-        reqs.push_back(world.isend(0, 2, p3));
+        world.send(0, 2, p3);
         break;
       case 3:
-        reqs.push_back(world.isend(0, 3, p4));
+        world.send(0, 3, p4);
         break;
       case 4:
-        reqs.push_back(world.isend(0, 4, p5));
+        world.send(0, 4, p5);
         break;
       case 5:
-        reqs.push_back(world.isend(0, 5, p6));
+        world.send(0, 5, p6);
         break;
       case 6:
-        reqs.push_back(world.isend(0, 6, p7));
+        world.send(0, 6, p7);
         break;
     }
-    boost::mpi::wait_all(reqs.begin(), reqs.end());
-    std::cout << "[DEBUG] Rank " << world.rank() << ": All isend completed" << std::endl;
+    std::cout << "[DEBUG] Rank " << world.rank() << ": Send completed" << std::endl;
   }
 
   world.barrier();
