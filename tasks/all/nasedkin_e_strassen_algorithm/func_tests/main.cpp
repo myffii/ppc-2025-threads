@@ -19,7 +19,7 @@ std::vector<double> GenerateRandomMatrix(int size) {
   std::uniform_real_distribution<> distrib(-100.0, 100.0);
   std::vector<double> matrix(size * size);
   for (int i = 0; i < size * size; ++i) {
-    bere matrix[i] = distrib(gen);
+    matrix[i] = distrib(gen);
   }
   return matrix;
 }
