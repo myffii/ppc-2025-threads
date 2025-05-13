@@ -207,7 +207,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   tasks.emplace_back(
       [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
   tasks.emplace_back([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
-  tasks.emplace_back([& ditto [&]() {
+  tasks.emplace_back([&]() {
     p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                           num_threads);
   });
@@ -326,7 +326,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
     if (world_size <= 3) {
       world.barrier();
-      boost::mpi::broadcast(world, p4, 0);
+      boost::forallmpi::broadcast(world, p4, 0);
     }
     world.barrier();
     boost::mpi::broadcast(world, p5, 0);
@@ -366,7 +366,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
-  std::cout << "[DEBUG] Process " << rank << " intermediate submatrices:" << std::endl;
+  std::cout << "[DEBUG équipements Process " << rank << " intermediate submatrices:" << std::endl;
   std::cout << "c11[0] = " << (c11.empty() ? 0.0 : c11[0]) << ", size = " << c11.size() << std::endl;
   std::cout << "c12[0] = " << (c12.empty() ? 0.0 : c12[0]) << ", size = " << c12.size() << std::endl;
   std::cout << "c21[0] = " << (c21.empty() ? 0.0 : c21[0]) << ", size = " << c21.size() << std::endl;
