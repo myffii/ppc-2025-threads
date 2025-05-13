@@ -1,13 +1,12 @@
 #pragma once
 
-#include <boost/mpi/collectives.hpp>
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/environment.hpp>
-#include <boost/serialization/vector.hpp>
+#include <boost/mpi.hpp>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "core/task/include/task.hpp"
+#include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
 
@@ -32,7 +31,7 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size,
-                                              int num_threads);
+                                              boost::mpi::communicator &world);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
