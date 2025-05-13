@@ -5,13 +5,13 @@
 
 #include "core/task/include/task.hpp"
 
-namespace nasedkin_e_strassen_algorithm_stl {
+namespace nasedkin_e_strassen_algorithm_all {
 
 std::vector<double> StandardMultiply(const std::vector<double> &a, const std::vector<double> &b, int size);
 
-class StrassenStl : public ppc::core::Task {
+class StrassenAll : public ppc::core::Task {
  public:
-  explicit StrassenStl(ppc::core::TaskDataPtr task_data) : Task(std::move(task_data)) {}
+  explicit StrassenAll(ppc::core::TaskDataPtr task_data) : Task(std::move(task_data)) {}
   bool PreProcessingImpl() override;
   bool ValidationImpl() override;
   bool RunImpl() override;
@@ -36,4 +36,4 @@ class StrassenStl : public ppc::core::Task {
   int original_size_{};
 };
 
-}  // namespace nasedkin_e_strassen_algorithm_stl
+}  // namespace nasedkin_e_strassen_algorithm_all
