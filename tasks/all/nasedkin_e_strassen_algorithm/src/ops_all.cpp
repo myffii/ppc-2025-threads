@@ -44,8 +44,8 @@ bool StrassenAll::PreProcessingImpl() {
   }
 
   // Распространяем размеры матриц на все процессы
-  mpi_comm_.broadcast(matrix_size_, 0);
-  mpi_comm_.broadcast(original_size_, 0);
+  boost::mpi::broadcast(mpi_comm_, matrix_size_, 0);
+  boost::mpi::broadcast(mpi_comm_, original_size_, 0);
 
   // Распространяем матрицы на все процессы
   if (mpi_rank_ != 0) {
@@ -54,8 +54,8 @@ bool StrassenAll::PreProcessingImpl() {
     output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
   }
 
-  mpi_comm_.broadcast(input_matrix_a_, 0);
-  mpi_comm_.broadcast(input_matrix_b_, 0);
+  boost::mpi::broadcast(mpi_comm_, input_matrix_a_, 0);
+  boost::mpi::broadcast(mpi_comm_, input_matrix_b_, 0);
 
   return true;
 }
@@ -82,7 +82,7 @@ bool StrassenAll::ValidationImpl() {
 
 bool StrassenAll::RunImpl() {
   int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads, mpi_comm_, mpi_rank_);
   return true;
 }
 
@@ -149,7 +149,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 }
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
-                                                  int num_threads) {
+                                                  int num_threads, boost::mpi::communicator& mpi_comm, int mpi_rank) {
   // Базовый случай - используем стандартное умножение для небольших матриц
   if (size <= 32) {
     return StandardMultiply(a, b, size);
@@ -187,7 +187,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   p7.resize(half_size_squared);
 
   // Распределение задач между процессами MPI
-  int task_assigned = mpi_rank_ % 7;
+  int task_assigned = mpi_rank % 7;
 
   // Промежуточные результаты для MPI обмена
   std::vector<double> s1, s2, s3, s4, s5, s6, s7, s8, s9, s10;
@@ -197,44 +197,44 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     case 0:
       s1 = AddMatrices(a11, a22, half_size);
       s2 = AddMatrices(b11, b22, half_size);
-      p1 = StrassenMultiply(s1, s2, half_size, num_threads);
+      p1 = StrassenMultiply(s1, s2, half_size, num_threads, mpi_comm, mpi_rank);
       break;
     case 1:
       s3 = AddMatrices(a21, a22, half_size);
-      p2 = StrassenMultiply(s3, b11, half_size, num_threads);
+      p2 = StrassenMultiply(s3, b11, half_size, num_threads, mpi_comm, mpi_rank);
       break;
     case 2:
       s4 = SubtractMatrices(b12, b22, half_size);
-      p3 = StrassenMultiply(a11, s4, half_size, num_threads);
+      p3 = StrassenMultiply(a11, s4, half_size, num_threads, mpi_comm, mpi_rank);
       break;
     case 3:
       s5 = SubtractMatrices(b21, b11, half_size);
-      p4 = StrassenMultiply(a22, s5, half_size, num_threads);
+      p4 = StrassenMultiply(a22, s5, half_size, num_threads, mpi_comm, mpi_rank);
       break;
     case 4:
       s6 = AddMatrices(a11, a12, half_size);
-      p5 = StrassenMultiply(s6, b22, half_size, num_threads);
+      p5 = StrassenMultiply(s6, b22, half_size, num_threads, mpi_comm, mpi_rank);
       break;
     case 5:
       s7 = SubtractMatrices(a21, a11, half_size);
       s8 = AddMatrices(b11, b12, half_size);
-      p6 = StrassenMultiply(s7, s8, half_size, num_threads);
+      p6 = StrassenMultiply(s7, s8, half_size, num_threads, mpi_comm, mpi_rank);
       break;
     case 6:
       s9 = SubtractMatrices(a12, a22, half_size);
       s10 = AddMatrices(b21, b22, half_size);
-      p7 = StrassenMultiply(s9, s10, half_size, num_threads);
+      p7 = StrassenMultiply(s9, s10, half_size, num_threads, mpi_comm, mpi_rank);
       break;
   }
 
-  // Собираем все P-матрицы на всех процессах с помощью allgather
-  mpi_comm_.all_gather(p1, p1);
-  mpi_comm_.all_gather(p2, p2);
-  mpi_comm_.all_gather(p3, p3);
-  mpi_comm_.all_gather(p4, p4);
-  mpi_comm_.all_gather(p5, p5);
-  mpi_comm_.all_gather(p6, p6);
-  mpi_comm_.all_gather(p7, p7);
+  // Собираем все P-матрицы на всех процессах с помощью all_gather
+  boost::mpi::all_gather(mpi_comm, p1, p1);
+  boost::mpi::all_gather(mpi_comm, p2, p2);
+  boost::mpi::all_gather(mpi_comm, p3, p3);
+  boost::mpi::all_gather(mpi_comm, p4, p4);
+  boost::mpi::all_gather(mpi_comm, p5, p5);
+  boost::mpi::all_gather(mpi_comm, p6, p6);
+  boost::mpi::all_gather(mpi_comm, p7, p7);
 
   // На каждом процессе выполняем многопоточно вычисление C-матриц
   std::vector<double> c11, c12, c21, c22;
