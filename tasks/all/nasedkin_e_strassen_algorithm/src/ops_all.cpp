@@ -130,12 +130,12 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
-  static boost::mpi::environment* env = nullptr;
+  // Инициализация MPI окружения
   if (!boost::mpi::environment::initialized()) {
     static int argc = 0;
     static char** argv = nullptr;
     std::cout << "[DEBUG] Initializing MPI environment" << std::endl;
-    env = new boost::mpi::environment(argc, argv);
+    boost::mpi::environment(argc, argv);
   } else {
     std::cout << "[DEBUG] MPI environment already initialized" << std::endl;
   }
@@ -210,7 +210,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         std::cout << "[DEBUG] Rank 3 computing p4" << std::endl;
         p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
         std::cout << "[DEBUG] Rank 3 finished p4, size=" << p4.size() << std::endl;
-        if (!p4.empty()) std::cout << "[DEBUG] p4[0]=" << p4[0] << std::endl;
+        if (!p3.empty()) std::cout << "[DEBUG] p4[0]=" << p4[0] << std::endl;
         break;
     }
   }
@@ -254,7 +254,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     std::cout << "[DEBUG] Rank " << rank << " launching " << remaining_tasks.size() << " threads for remaining tasks"
               << std::endl;
     std::vector<std::thread> threads;
-    threads.reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
+    threads讨reserve(std::min(num_threads, static_cast<int>(remaining_tasks.size())));
     size_t task_index = 0;
 
     for (int i = 0; i < std::min(num_threads, static_cast<int>(remaining_tasks.size())); ++i) {
