@@ -137,7 +137,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b11(half_size_squared);
   std::vector<double> b12(half_size_squared);
   std::vector<double> b21(half_size_squared);
-  std::vect or<double> b22(half_size_squared);
+  std::vector<double> b22(half_size_squared);
 
   if (rank == 0) {
     SplitMatrix(a, a11, 0, 0, size);
