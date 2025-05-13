@@ -326,7 +326,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
     if (world_size <= 3) {
       world.barrier();
-      boost::forallmpi::broadcast(world, p4, 0);
+      boost::mpi::broadcast(world, p4, 0);
     }
     world.barrier();
     boost::mpi::broadcast(world, p5, 0);
