@@ -1,8 +1,8 @@
 #pragma once
 
+#include <boost/mpi/communicator.hpp>
 #include <utility>
 #include <vector>
-#include <boost/mpi/communicator.hpp>
 
 #include "core/task/include/task.hpp"
 
