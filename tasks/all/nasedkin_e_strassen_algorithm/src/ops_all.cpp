@@ -177,14 +177,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::vector<double> p1, p2, p3, p4, p5, p6, p7;
-  p1.resize(half_size_squared);
-  p2.resize(half_size_squared);
-  p3.resize(half_size_squared);
-  p4.resize(half_size_squared);
-  p5.resize(half_size_squared);
-  p6.resize(half_size_squared);
-  p7.resize(half_size_squared);
+  std::vector<double> p1(half_size_squared, 0.0);
+  std::vector<double> p2(half_size_squared, 0.0);
+  std::vector<double> p3(half_size_squared, 0.0);
+  std::vector<double> p4(half_size_squared, 0.0);
+  std::vector<double> p5(half_size_squared, 0.0);
+  std::vector<double> p6(half_size_squared, 0.0);
+  std::vector<double> p7(half_size_squared, 0.0);
 
   // Распределение задач между процессами MPI
   int task_assigned = mpi_rank % 7;
@@ -228,20 +227,43 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Собираем все P-матрицы на всех процессах с помощью all_gather
-  boost::mpi::all_gather(mpi_comm, p1, p1);
-  boost::mpi::all_gather(mpi_comm, p2, p2);
-  boost::mpi::all_gather(mpi_comm, p3, p3);
-  boost::mpi::all_gather(mpi_comm, p4, p4);
-  boost::mpi::all_gather(mpi_comm, p5, p5);
-  boost::mpi::all_gather(mpi_comm, p6, p6);
-  boost::mpi::all_gather(mpi_comm, p7, p7);
+  std::vector<std::vector<double>> all_p(7, std::vector<double>(half_size_squared, 0.0));
+  if (task_assigned == 0)
+    all_p[0] = p1;
+  else if (task_assigned == 1)
+    all_p[1] = p2;
+  else if (task_assigned == 2)
+    all_p[2] = p3;
+  else if (task_assigned == 3)
+    all_p[3] = p4;
+  else if (task_assigned == 4)
+    all_p[4] = p5;
+  else if (task_assigned == 5)
+    all_p[5] = p6;
+  else if (task_assigned == 6)
+    all_p[6] = p7;
+
+  for (int i = 0; i < 7; ++i) {
+    std::vector<double> gathered_values;
+    boost::mpi::all_gather(mpi_comm, all_p[i].data(), half_size_squared, gathered_values);
+    if (mpi_rank == i % mpi_comm.size()) {
+      all_p[i] = gathered_values;
+    }
+  }
+
+  p1 = all_p[0];
+  p2 = all_p[1];
+  p3 = all_p[2];
+  p4 = all_p[3];
+  p5 = all_p[4];
+  p6 = all_p[5];
+  p7 = all_p[6];
 
   // На каждом процессе выполняем многопоточно вычисление C-матриц
-  std::vector<double> c11, c12, c21, c22;
-  c11.resize(half_size_squared);
-  c12.resize(half_size_squared);
-  c21.resize(half_size_squared);
-  c22.resize(half_size_squared);
+  std::vector<double> c11(half_size_squared);
+  std::vector<double> c12(half_size_squared);
+  std::vector<double> c21(half_size_squared);
+  std::vector<double> c22(half_size_squared);
 
   std::vector<std::function<void()>> tasks;
   tasks.reserve(4);
