@@ -14,10 +14,11 @@
 namespace nasedkin_e_strassen_algorithm_all {
 
 bool StrassenAll::PreProcessingImpl() {
-  boost::mpi::communicator StrassenAll::mpi_comm_;
-  int StrassenAll::mpi_world_size_ = 0;
-  int StrassenAll::mpi_rank_ = 0;
+  mpi_comm_ = boost::mpi::communicator();
+  mpi_world_size_ = mpi_comm_.size();
+  mpi_rank_ = mpi_comm_.rank();
 
+  // Инициализация только на корневом процессе (rank 0)
   if (mpi_rank_ == 0) {
     unsigned int input_size = task_data->inputs_count[0];
     auto* in_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
@@ -42,9 +43,11 @@ bool StrassenAll::PreProcessingImpl() {
     output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
   }
 
+  // Распространяем размеры матриц на все процессы
   mpi_comm_.broadcast(matrix_size_, 0);
   mpi_comm_.broadcast(original_size_, 0);
 
+  // Распространяем матрицы на все процессы
   if (mpi_rank_ != 0) {
     input_matrix_a_.resize(matrix_size_ * matrix_size_);
     input_matrix_b_.resize(matrix_size_ * matrix_size_);
@@ -58,6 +61,7 @@ bool StrassenAll::PreProcessingImpl() {
 }
 
 bool StrassenAll::ValidationImpl() {
+  // Валидация необходима только на корневом процессе
   if (mpi_rank_ == 0) {
     unsigned int input_size_a = task_data->inputs_count[0];
     unsigned int input_size_b = task_data->inputs_count[1];
@@ -83,6 +87,7 @@ bool StrassenAll::RunImpl() {
 }
 
 bool StrassenAll::PostProcessingImpl() {
+  // Только корневой процесс выполняет пост-обработку и сохраняет результат
   if (mpi_rank_ == 0) {
     if (original_size_ != matrix_size_) {
       output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
@@ -145,6 +150,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
+  // Базовый случай - используем стандартное умножение для небольших матриц
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
@@ -180,10 +186,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   p6.resize(half_size_squared);
   p7.resize(half_size_squared);
 
+  // Распределение задач между процессами MPI
   int task_assigned = mpi_rank_ % 7;
 
+  // Промежуточные результаты для MPI обмена
   std::vector<double> s1, s2, s3, s4, s5, s6, s7, s8, s9, s10;
 
+  // Вычисление промежуточных матриц
   switch (task_assigned) {
     case 0:
       s1 = AddMatrices(a11, a22, half_size);
@@ -218,6 +227,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
       break;
   }
 
+  // Собираем все P-матрицы на всех процессах с помощью allgather
   mpi_comm_.all_gather(p1, p1);
   mpi_comm_.all_gather(p2, p2);
   mpi_comm_.all_gather(p3, p3);
@@ -226,6 +236,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   mpi_comm_.all_gather(p6, p6);
   mpi_comm_.all_gather(p7, p7);
 
+  // На каждом процессе выполняем многопоточно вычисление C-матриц
   std::vector<double> c11, c12, c21, c22;
   c11.resize(half_size_squared);
   c12.resize(half_size_squared);

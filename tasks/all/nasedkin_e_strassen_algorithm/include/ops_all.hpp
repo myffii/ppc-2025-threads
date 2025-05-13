@@ -34,9 +34,6 @@ class StrassenAll : public ppc::core::Task {
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
-  static boost::mpi::communicator mpi_comm_;
-  static int mpi_world_size_{};
-  static int mpi_rank_{};
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_all
