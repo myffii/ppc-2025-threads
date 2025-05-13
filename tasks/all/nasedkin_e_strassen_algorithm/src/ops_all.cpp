@@ -21,7 +21,7 @@ bool StrassenAll::PreProcessingImpl() {
 
   matrix_size_ = static_cast<int>(std::sqrt(input_size));
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
-  input_matrix_b_.resizeuitively(matrix_size_ * matrix_size_);
+  input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
   std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
   std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
