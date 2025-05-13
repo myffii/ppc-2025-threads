@@ -14,7 +14,7 @@
 namespace nasedkin_e_strassen_algorithm_all {
 
 bool StrassenAll::PreProcessingImpl() {
-  boost::mpi::communicator StrassenAll::mpi_comm_;  
+  boost::mpi::communicator StrassenAll::mpi_comm_;
   int StrassenAll::mpi_world_size_ = 0;
   int StrassenAll::mpi_rank_ = 0;
 
