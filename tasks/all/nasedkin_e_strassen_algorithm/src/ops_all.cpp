@@ -1,5 +1,3 @@
-#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
-
 #include <algorithm>
 #include <boost/mpi/collectives.hpp>
 #include <boost/mpi/communicator.hpp>
@@ -12,6 +10,7 @@
 #include <thread>
 #include <vector>
 
+#include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 #include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
@@ -147,7 +146,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
             << ", num_threads = " << num_threads << std::endl;
 
   // Базовый случай
-  if (size <= 32 || world_size <= 1) {  // Оставлен оригинальный порог
+  if (size <= 32 || world_size <= 1) {
     std::cout << "[DEBUG] Process " << rank << ": Using StandardMultiply for size = " << size << std::endl;
     return StandardMultiply(a, b, size);
   }
@@ -198,20 +197,28 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Определение задач
   std::vector<std::function<void()>> tasks;
-  tasks.emplace_back([&]() {
+  tasks.emplace_back([a11 = a11, a22 = a22, b11 = b11, b22 = b22, half_size, num_threads, &p1]() {
     p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
   });
-  tasks.emplace_back([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads); });
-  tasks.emplace_back(
-      [&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads); });
-  tasks.emplace_back(
-      [&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads); });
-  tasks.emplace_back([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads); });
-  tasks.emplace_back([&]() {
+  tasks.emplace_back([a21 = a21, a22 = a22, b11 = b11, half_size, num_threads, &p2]() {
+    p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
+  });
+  tasks.emplace_back([a11 = a11, b12 = b12, b22 = b22, half_size, num_threads, &p3]() {
+    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size),
+
+                          half_size, num_threads);
+  });
+  tasks.emplace_back([a22 = a22, b21 = b21, b11 = b11, half_size, num_threads, &p4]() {
+    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
+  });
+  tasks.emplace_back([a11 = a11, a12 = a12, b22 = b22, half_size, num_threads, &p5]() {
+    p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
+  });
+  tasks.emplace_back([a21 = a21, a11 = a11, b11 = b11, b12 = b12, half_size, num_threads, &p6]() {
     p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                           num_threads);
   });
-  tasks.emplace_back([&]() {
+  tasks.emplace_back([a12 = a12, a22 = a22, b21 = b21, b22 = b22, half_size, num_threads, &p7]() {
     p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                           num_threads);
   });
@@ -348,7 +355,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     world.barrier();
     boost::mpi::broadcast(world, p6, 0);
     world.barrier();
-    boost::mpi::broadcast(world, p7, 0);
+    boost::mpi::broadcast(world, p7, 0);
   }
 
   std::cout << "[DEBUG] Process " << rank << " after broadcast of remaining tasks:" << std::endl;
@@ -366,7 +373,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
-  std::cout << "[DEBUG équipements Process " << rank << " intermediate submatrices:" << std::endl;
+  std::cout << "[DEBUG] Process " << rank << " intermediate submatrices:" << std::endl;
   std::cout << "c11[0] = " << (c11.empty() ? 0.0 : c11[0]) << ", size = " << c11.size() << std::endl;
   std::cout << "c12[0] = " << (c12.empty() ? 0.0 : c12[0]) << ", size = " << c12.size() << std::endl;
   std::cout << "c21[0] = " << (c21.empty() ? 0.0 : c21[0]) << ", size = " << c21.size() << std::endl;
