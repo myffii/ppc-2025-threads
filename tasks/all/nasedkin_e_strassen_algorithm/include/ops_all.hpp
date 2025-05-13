@@ -1,9 +1,5 @@
 #pragma once
 
-#include <boost/mpi/collectives.hpp>
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/environment.hpp>
-#include <boost/serialization/vector.hpp>
 #include <utility>
 #include <vector>
 
@@ -31,8 +27,7 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size);
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
                                                       int padded_size);
-  static std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size,
-                                              int num_threads);
+  static std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
