@@ -178,49 +178,47 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  // Распределяем 7 произведений между MPI-процессами
+  // Определяем все задачи для вычисления p1-p7
   std::vector<std::function<void()>> tasks;
-  if (world.rank() == 0) {
-    tasks.push_back([&]() {
-      p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, world);
-    });
-  } else if (world.rank() == 1) {
-    tasks.push_back([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, world); });
-  } else if (world.rank() == 2) {
-    tasks.push_back([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, world); });
-  } else if (world.rank() == 3) {
-    tasks.push_back([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, world); });
-  } else {
-    // Дополнительные процессы могут выполнять оставшиеся задачи
-    int task_id = world.rank() % 3 + 4;
-    if (task_id == 4) {
-      tasks.push_back([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, world); });
-    } else if (task_id == 5) {
-      tasks.push_back([&]() {
-        p6 =
-            StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size, world);
-      });
-    } else if (task_id == 6) {
-      tasks.push_back([&]() {
-        p7 =
-            StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size, world);
-      });
-    }
-  }
+  tasks.push_back([&]() {
+    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, world);
+  });
+  tasks.push_back([&]() { p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, world); });
+  tasks.push_back([&]() { p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, world); });
+  tasks.push_back([&]() { p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, world); });
+  tasks.push_back([&]() { p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, world); });
+  tasks.push_back([&]() {
+    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size, world);
+  });
+  tasks.push_back([&]() {
+    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size, world);
+  });
 
   std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", Tasks assigned: " << tasks.size() << std::endl;
 
-  // Параллелим задачи внутри процесса с помощью потоков
+  // Распределяем задачи между MPI-процессами
+  std::vector<std::function<void()>> local_tasks;
+  int tasks_per_process = (tasks.size() + world.size() - 1) / world.size();
+  int start_idx = world.rank() * tasks_per_process;
+  int end_idx = std::min(static_cast<int>(tasks.size()), start_idx + tasks_per_process);
+  for (int i = start_idx; i < end_idx; ++i) {
+    local_tasks.push_back(tasks[i]);
+  }
+
+  std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", Local tasks: " << local_tasks.size()
+            << std::endl;
+
+  // Параллелим локальные задачи с помощью потоков
   int num_threads = ppc::util::GetPPCNumThreads();
   std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", Using " << num_threads << " threads"
             << std::endl;
 
   std::vector<std::thread> threads;
-  for (size_t i = 0; i < tasks.size(); ++i) {
+  for (size_t i = 0; i < local_tasks.size(); ++i) {
     if (i < static_cast<size_t>(num_threads)) {
-      threads.emplace_back(tasks[i]);
+      threads.emplace_back(local_tasks[i]);
     } else {
-      tasks[i]();  // Выполняем последовательно, если потоков не хватает
+      local_tasks[i]();  // Выполняем последовательно, если потоков не хватает
     }
   }
 
@@ -232,79 +230,99 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Собираем результаты через MPI
   if (world.rank() == 0) {
-    // Главный процесс уже имеет p1
+    // Уже вычисленные p1-p7 для rank 0
     if (world.size() > 1) {
-      world.recv(1, 1, p2.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p2" << std::endl;
-    }
-    if (world.size() > 2) {
-      world.recv(2, 2, p3.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p3" << std::endl;
-    }
-    if (world.size() > 3) {
-      world.recv(3, 3, p4.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p4" << std::endl;
-    }
-    if (world.size() > 4) {
-      world.recv(4, 4, p5.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p5" << std::endl;
-    }
-    if (world.size() > 5) {
-      world.recv(5, 5, p6.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p6" << std::endl;
-    }
-    if (world.size() > 6) {
-      world.recv(6, 6, p7.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p7" << std::endl;
+      for (int rank = 1; rank < world.size(); ++rank) {
+        int rank_start_idx = rank * tasks_per_process;
+        int rank_end_idx = std::min(static_cast<int>(tasks.size()), rank_start_idx + tasks_per_process);
+        for (int i = rank_start_idx; i < rank_end_idx; ++i) {
+          if (i == 0) continue;  // p1 уже у rank 0
+          std::vector<double> temp(half_size_squared);
+          world.recv(rank, i, temp.data(), half_size_squared);
+          std::cout << "[DEBUG] StrassenMultiply: Rank 0 received p" << i + 1 << " from rank " << rank << std::endl;
+          if (i == 1)
+            p2 = temp;
+          else if (i == 2)
+            p3 = temp;
+          else if (i == 3)
+            p4 = temp;
+          else if (i == 4)
+            p5 = temp;
+          else if (i == 5)
+            p6 = temp;
+          else if (i == 6)
+            p7 = temp;
+        }
+      }
     }
   } else {
-    if (world.rank() == 1 && !p2.empty()) {
-      world.send(0, 1, p2.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 1 sent p2" << std::endl;
-    } else if (world.rank() == 2 && !p3.empty()) {
-      world.send(0, 2, p3.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 2 sent p3" << std::endl;
-    } else if (world.rank() == 3 && !p4.empty()) {
-      world.send(0, 3, p4.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 3 sent p4" << std::endl;
-    } else if (world.rank() == 4 && !p5.empty()) {
-      world.send(0, 4, p5.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 4 sent p5" << std::endl;
-    } else if (world.rank() == 5 && !p6.empty()) {
-      world.send(0, 5, p6.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 5 sent p6" << std::endl;
-    } else if (world.rank() == 6 && !p7.empty()) {
-      world.send(0, 6, p7.data(), half_size_squared);
-      std::cout << "[DEBUG] StrassenMultiply: Rank 6 sent p7" << std::endl;
+    // Отправляем вычисленные p_i на rank 0
+    for (size_t i = 0; i < local_tasks.size(); ++i) {
+      int global_idx = start_idx + i;
+      if (global_idx == 0) continue;  // p1 не отправляем, он у rank 0
+      std::vector<double> temp;
+      if (global_idx == 1)
+        temp = p2;
+      else if (global_idx == 2)
+        temp = p3;
+      else if (global_idx == 3)
+        temp = p4;
+      else if (global_idx == 4)
+        temp = p5;
+      else if (global_idx == 5)
+        temp = p6;
+      else if (global_idx == 6)
+        temp = p7;
+      if (!temp.empty()) {
+        world.send(0, global_idx, temp.data(), half_size_squared);
+        std::cout << "[DEBUG] StrassenMultiply: Rank " << world.rank() << " sent p" << global_idx + 1 << std::endl;
+      }
     }
   }
 
   world.barrier();
   std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", MPI Barrier passed" << std::endl;
 
-  std::vector<double> result;
+  // Рассылаем p1-p7 всем процессам
   if (world.rank() == 0) {
-    std::vector<double> c11 =
-        AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-    std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-    std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-    std::vector<double> c22 =
-        AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
-
-    result.resize(size * size);
-    MergeMatrix(result, c11, 0, 0, size);
-    MergeMatrix(result, c12, 0, half_size, size);
-    MergeMatrix(result, c21, half_size, 0, size);
-    MergeMatrix(result, c22, half_size, half_size, size);
-
-    std::cout << "[DEBUG] StrassenMultiply: Rank 0, Result matrix computed" << std::endl;
+    boost::mpi::broadcast(world, p1.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p2.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p3.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p4.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p5.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p6.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p7.data(), half_size_squared, 0);
   } else {
-    result.resize(size * size, 0.0);
+    p1.resize(half_size_squared);
+    p2.resize(half_size_squared);
+    p3.resize(half_size_squared);
+    p4.resize(half_size_squared);
+    p5.resize(half_size_squared);
+    p6.resize(half_size_squared);
+    p7.resize(half_size_squared);
+    boost::mpi::broadcast(world, p1.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p2.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p3.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p4.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p5.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p6.data(), half_size_squared, 0);
+    boost::mpi::broadcast(world, p7.data(), half_size_squared, 0);
   }
 
-  // Рассылаем результат всем процессам
-  boost::mpi::broadcast(world, result.data(), size * size, 0);
-  std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", Result broadcasted" << std::endl;
+  std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", p1-p7 broadcasted" << std::endl;
+
+  std::vector<double> result(size * size);
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+
+  MergeMatrix(result, c11, 0, 0, size);
+  MergeMatrix(result, c12, 0, half_size, size);
+  MergeMatrix(result, c21, half_size, 0, size);
+  MergeMatrix(result, c22, half_size, half_size, size);
+
+  std::cout << "[DEBUG] StrassenMultiply: Rank = " << world.rank() << ", Result matrix computed" << std::endl;
 
   return result;
 }
