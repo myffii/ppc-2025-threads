@@ -3,6 +3,7 @@
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/environment.hpp>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <random>
 #include <vector>
@@ -32,6 +33,7 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 
 void RunRandomMatrixTest(int size) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting RunRandomMatrixTest with size " << size << std::endl;
   if (world.rank() == 0) {
     std::vector<double> in_a = GenerateRandomMatrix(size);
     std::vector<double> in_b = GenerateRandomMatrix(size);
@@ -52,10 +54,12 @@ void RunRandomMatrixTest(int size) {
     strassen_task.PostProcessing();
   }
   world.barrier();
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Passed barrier in RunRandomMatrixTest" << std::endl;
 }
 
 void RunFixedMatrixTest(int size) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting RunFixedMatrixTest with size " << size << std::endl;
   if (world.rank() == 0) {
     std::vector<double> in_a(size * size);
     std::vector<double> in_b(size * size);
@@ -87,10 +91,13 @@ void RunFixedMatrixTest(int size) {
     }
   }
   world.barrier();
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Passed barrier in RunFixedMatrixTest" << std::endl;
 }
 
 void RunRandomMatrixIdentityTest(int size) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting RunRandomMatrixIdentityTest with size " << size
+            << std::endl;
   if (world.rank() == 0) {
     std::vector<double> in_a = GenerateRandomMatrix(size);
     std::vector<double> in_b = GenerateIdentityMatrix(size);
@@ -115,10 +122,13 @@ void RunRandomMatrixIdentityTest(int size) {
     }
   }
   world.barrier();
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Passed barrier in RunRandomMatrixIdentityTest" << std::endl;
 }
 
 void RunFixedMatrixIdentityTest(int size) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting RunFixedMatrixIdentityTest with size " << size
+            << std::endl;
   if (world.rank() == 0) {
     std::vector<double> in_a(size * size);
     std::vector<double> in_b = GenerateIdentityMatrix(size);
@@ -148,11 +158,13 @@ void RunFixedMatrixIdentityTest(int size) {
     }
   }
   world.barrier();
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Passed barrier in RunFixedMatrixIdentityTest" << std::endl;
 }
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting test_validation_zero_size" << std::endl;
   if (world.rank() == 0) {
     auto task_data = std::make_shared<ppc::core::TaskData>();
     std::vector<double> a(0);
@@ -165,6 +177,7 @@ TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
     nasedkin_e_strassen_algorithm_all::StrassenAll task(task_data);
     ASSERT_FALSE(task.Validation());
   }
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Completed test_validation_zero_size" << std::endl;
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_fixed_identity) { RunFixedMatrixIdentityTest(63); }

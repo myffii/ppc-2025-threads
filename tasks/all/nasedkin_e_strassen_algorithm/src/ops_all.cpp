@@ -179,27 +179,25 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     std::cout << "[DEBUG] Rank " << world.rank() << ": Executing task p" << world.rank() + 1 << std::endl;
     switch (world.rank()) {
       case 0:
-        p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, world);
+        p1 = StandardMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
         break;
       case 1:
-        p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, world);
+        p2 = StandardMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
         break;
       case 2:
-        p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, world);
+        p3 = StandardMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
         break;
       case 3:
-        p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, world);
+        p4 = StandardMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
         break;
       case 4:
-        p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, world);
+        p5 = StandardMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
         break;
       case 5:
-        p6 =
-            StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size, world);
+        p6 = StandardMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
         break;
       case 6:
-        p7 =
-            StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size, world);
+        p7 = StandardMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
         break;
     }
   }
@@ -216,27 +214,27 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         switch (task_id) {
           case 0:
             thread_results[i] =
-                StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, world);
+                StandardMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
             break;
           case 1:
-            thread_results[i] = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, world);
+            thread_results[i] = StandardMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
             break;
           case 2:
-            thread_results[i] = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, world);
+            thread_results[i] = StandardMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
             break;
           case 3:
-            thread_results[i] = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, world);
+            thread_results[i] = StandardMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
             break;
           case 4:
-            thread_results[i] = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, world);
+            thread_results[i] = StandardMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
             break;
           case 5:
-            thread_results[i] = StrassenMultiply(SubtractMatrices(a21, a11, half_size),
-                                                 AddMatrices(b11, b12, half_size), half_size, world);
+            thread_results[i] =
+                StandardMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
             break;
           case 6:
-            thread_results[i] = StrassenMultiply(SubtractMatrices(a12, a22, half_size),
-                                                 AddMatrices(b21, b22, half_size), half_size, world);
+            thread_results[i] =
+                StandardMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
             break;
         }
       });
@@ -251,7 +249,8 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  // Сбор результатов от всех процессов
+  // Сбор результатов с использованием неблокирующих операций
+  std::vector<boost::mpi::request> reqs;
   if (world.rank() == 0) {
     std::cout << "[DEBUG] Rank 0: Collecting results" << std::endl;
     // Присваиваем результаты из потоков
@@ -281,33 +280,38 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
           break;
       }
     }
-    // Получение результатов от других процессов
+    // Инициация получения результатов от других процессов
+    std::vector<std::vector<double>> received_results(total_tasks, std::vector<double>(half_size_squared));
     for (int i = 1; i < world_size && i < total_tasks; ++i) {
-      std::vector<double> received(half_size_squared);
-      world.recv(i, i, received);
-      std::cout << "[DEBUG] Rank 0: Received result for p" << i + 1 << " from rank " << i << std::endl;
+      reqs.push_back(world.irecv(i, i, received_results[i]));
+      std::cout << "[DEBUG] Rank 0: Initiated irecv for p" << i + 1 << " from rank " << i << std::endl;
+    }
+    // Ожидание завершения всех запросов
+    boost::mpi::wait_all(reqs.begin(), reqs.end());
+    std::cout << "[DEBUG] Rank 0: All irecv completed" << std::endl;
+    // Присваивание полученных результатов
+    for (int i = 1; i < world_size && i < total_tasks; ++i) {
       switch (i) {
         case 0:
-          p1 = received;
+          p1 = received_results[i];
           break;
         case 1:
-          p2 = received;
+          p2 = received_results[i];
           break;
         case 2:
-          p3 = received;
+          p3 = received_results[i];
           break;
         case 3:
-          p4 = received;
+          p4 = received_results[i];
           break;
         case 4:
-
-          p5 = received;
+          p5 = received_results[i];
           break;
         case 5:
-          p6 = received;
+          p6 = received_results[i];
           break;
         case 6:
-          p7 = received;
+          p7 = received_results[i];
           break;
       }
     }
@@ -316,27 +320,29 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
               << std::endl;
     switch (world.rank()) {
       case 0:
-        world.send(0, 0, p1);
+        reqs.push_back(world.isend(0, 0, p1));
         break;
       case 1:
-        world.send(0, 1, p2);
+        reqs.push_back(world.isend(0, 1, p2));
         break;
       case 2:
-        world.send(0, 2, p3);
+        reqs.push_back(world.isend(0, 2, p3));
         break;
       case 3:
-        world.send(0, 3, p4);
+        reqs.push_back(world.isend(0, 3, p4));
         break;
       case 4:
-        world.send(0, 4, p5);
+        reqs.push_back(world.isend(0, 4, p5));
         break;
       case 5:
-        world.send(0, 5, p6);
+        reqs.push_back(world.isend(0, 5, p6));
         break;
       case 6:
-        world.send(0, 6, p7);
+        reqs.push_back(world.isend(0, 6, p7));
         break;
     }
+    boost::mpi::wait_all(reqs.begin(), reqs.end());
+    std::cout << "[DEBUG] Rank " << world.rank() << ": All isend completed" << std::endl;
   }
 
   world.barrier();

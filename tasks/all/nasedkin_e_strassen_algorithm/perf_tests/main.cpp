@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <random>
 #include <vector>
@@ -28,6 +29,7 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting test_pipeline_run" << std::endl;
   if (world.rank() == 0) {
     constexpr size_t kMatrixSize = 512;
     std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
@@ -65,10 +67,12 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
     }
   }
   world.barrier();
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Passed barrier in test_pipeline_run" << std::endl;
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   boost::mpi::communicator world;
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Starting test_task_run" << std::endl;
   if (world.rank() == 0) {
     constexpr size_t kMatrixSize = 512;
     std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
@@ -106,4 +110,5 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
     }
   }
   world.barrier();
+  std::cout << "[DEBUG] Rank " << world.rank() << ": Passed barrier in test_task_run" << std::endl;
 }
