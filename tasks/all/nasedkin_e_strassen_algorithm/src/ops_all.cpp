@@ -277,6 +277,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
   for (size_t i = 0; i < tasks.size(); ++i) {
     comm.barrier();
+    std::cout << "Process " << rank << ": Broadcasting p" << i + 1 << " from root " << (i % size_comm) << std::endl;
     boost::mpi::broadcast(comm, all_p[i], i % size_comm);
     std::cout << "Process " << rank << ": Broadcasted/received p" << i + 1 << std::endl;
   }

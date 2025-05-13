@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/mpi.hpp>
+#include <boost/serialization/vector.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -30,7 +31,7 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   mpi::communicator comm;
-  std::cout、家 std::cout << "Process " << comm.rank() << ": test_pipeline_run started" << std::endl;
+  std::cout << "Process " << comm.rank() << ": test_pipeline_run started" << std::endl;
   constexpr size_t kMatrixSize = 512;
   std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
