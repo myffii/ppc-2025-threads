@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/mpi/communicator.hpp>
+#include <boost/mpi.hpp>
 #include <utility>
 #include <vector>
 
@@ -29,15 +29,12 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size,
-                                              int num_threads, boost::mpi::communicator &mpi_comm, int mpi_rank);
+                                              int num_threads, boost::mpi::communicator &comm);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
-  boost::mpi::communicator mpi_comm_;
-  int mpi_world_size_{};
-  int mpi_rank_{};
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_all
