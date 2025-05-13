@@ -38,7 +38,7 @@ void RunRandomMatrixTest(int size) {
     std::vector<double> out(size * size, 0.0);
 
     auto task_data = std::make_shared<ppc::core::TaskData>();
-    task_data->inputs.emplace_back(reinterpret_cast<uint początk8_t*>(in_a.data()));
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
     task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
     task_data->inputs_count.emplace_back(in_a.size());
     task_data->inputs_count.emplace_back(in_b.size());
