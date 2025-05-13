@@ -162,9 +162,9 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   // Распределение задач
   const int total_tasks = 7;
   int world_size = world.size();
-  if (world_size > total_tasks) world_size = total_tasks;  // Ограничиваем до 7 процессов
-  int tasks_per_process = 1;                               // Каждый процесс получает минимум 1 задачу
-  int remaining_tasks = total_tasks - world_size;          // Остаток задач для потоков
+  if (world_size > total_tasks) world_size = total_tasks;
+  int tasks_per_process = 1;
+  int remaining_tasks = total_tasks - world_size;
 
   std::cout << "[DEBUG] Rank " << world.rank() << ": world_size = " << world_size
             << ", remaining_tasks for threads = " << remaining_tasks << std::endl;
