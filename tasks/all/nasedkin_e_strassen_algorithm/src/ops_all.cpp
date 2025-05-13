@@ -33,6 +33,7 @@ bool StrassenAll::PreProcessingImpl() {
     input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_, matrix_size_);
     input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_, matrix_size_);
     matrix_size_ = static_cast<int>(std::sqrt(input_matrix_a_.size()));
+    std::cout << "[DEBUG] Padded matrices from " << original_size_ << " to " << matrix_size_ << std::endl;
   } else {
     original_size_ = matrix_size_;
   }
@@ -66,6 +67,7 @@ bool StrassenAll::RunImpl() {
 bool StrassenAll::PostProcessingImpl() {
   if (original_size_ != matrix_size_) {
     output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
+    std::cout << "[DEBUG] Trimmed output matrix to original size " << original_size_ << std::endl;
   }
 
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
@@ -109,6 +111,8 @@ std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>
     std::ranges::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
                       padded_matrix.begin() + i * new_size);
   }
+  std::cout << "[DEBUG] Padded matrix from " << original_size << "x" << original_size << " to " << new_size << "x"
+            << new_size << std::endl;
   return padded_matrix;
 }
 
@@ -119,13 +123,14 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
     std::ranges::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
                       trimmed_matrix.begin() + i * original_size);
   }
+  std::cout << "[DEBUG] Trimmed matrix from " << padded_size << "x" << padded_size << " to " << original_size << "x"
+            << original_size << std::endl;
   return trimmed_matrix;
 }
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
-  // Инициализация MPI
-  boost::mpi::environment* env = nullptr;
+  static boost::mpi::environment* env = nullptr;
   if (!boost::mpi::environment::initialized()) {
     static int argc = 0;
     static char** argv = nullptr;
@@ -144,10 +149,6 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   if (size <= 32 || world_size <= 1) {
     std::cout << "[DEBUG] Using StandardMultiply (base case, size=" << size << " or world_size=" << world_size << ")"
               << std::endl;
-    if (env != nullptr) {
-      std::cout << "[DEBUG] Deleting MPI environment" << std::endl;
-      delete env;
-    }
     return StandardMultiply(a, b, size);
   }
 
@@ -180,7 +181,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
   // Распределение задач по процессам (1–4)
-  int max_processes = std::min(world_size, 4);  // Ограничиваем до 4 процессов
+  int max_processes = std::min(world_size, 4);
   std::cout << "[DEBUG] Max processes for tasks: " << max_processes << std::endl;
 
   if (rank < max_processes) {
@@ -191,65 +192,64 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
                               num_threads);
         std::cout << "[DEBUG] Rank 0 finished p1, size=" << p1.size() << std::endl;
-        boost::mpi::broadcast(world, p1, 0);
-        std::cout << "[DEBUG] Rank 0 broadcasted p1" << std::endl;
+        if (!p1.empty()) std::cout << "[DEBUG] p1[0]=" << p1[0] << std::endl;
         break;
       case 1:
         std::cout << "[DEBUG] Rank 1 computing p2" << std::endl;
         p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
         std::cout << "[DEBUG] Rank 1 finished p2, size=" << p2.size() << std::endl;
-        boost::mpi::broadcast(world, p2, 1);
-        std::cout << "[DEBUG] Rank 1 broadcasted p2" << std::endl;
+        if (!p2.empty()) std::cout << "[DEBUG] p2[0]=" << p2[0] << std::endl;
         break;
       case 2:
         std::cout << "[DEBUG] Rank 2 computing p3" << std::endl;
         p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
         std::cout << "[DEBUG] Rank 2 finished p3, size=" << p3.size() << std::endl;
-        boost::mpi::broadcast(world, p3, 2);
-        std::cout << "[DEBUG] Rank 2 broadcasted p3" << std::endl;
+        if (!p3.empty()) std::cout << "[DEBUG] p3[0]=" << p3[0] << std::endl;
         break;
       case 3:
         std::cout << "[DEBUG] Rank 3 computing p4" << std::endl;
         p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
         std::cout << "[DEBUG] Rank 3 finished p4, size=" << p4.size() << std::endl;
-        boost::mpi::broadcast(world, p4, 3);
-        std::cout << "[DEBUG] Rank 3 broadcasted p4" << std::endl;
+        if (!p4.empty()) std::cout << "[DEBUG] p4[0]=" << p4[0] << std::endl;
         break;
     }
   }
 
-  // Синхронизация: все процессы получают результаты
-  std::cout << "[DEBUG] Rank " << rank << " waiting for broadcasts" << std::endl;
-  if (max_processes > 0 && (rank != 0 || max_processes == 1)) boost::mpi::broadcast(world, p1, 0);
-  if (max_processes > 1 && rank != 1) boost::mpi::broadcast(world, p2, 1);
-  if (max_processes > 2 && rank != 2) boost::mpi::broadcast(world, p3, 2);
-  if (max_processes > 3 && rank != 3) boost::mpi::broadcast(world, p4, 3);
+  // Синхронизация для p1–p4
+  std::cout << "[DEBUG] Rank " << rank << " broadcasting p1-p4" << std::endl;
+  if (max_processes > 0) boost::mpi::broadcast(world, p1, 0);
+  if (max_processes > 1) boost::mpi::broadcast(world, p2, 1);
+  if (max_processes > 2) boost::mpi::broadcast(world, p3, 2);
+  if (max_processes > 3) boost::mpi::broadcast(world, p4, 3);
   std::cout << "[DEBUG] Rank " << rank << " received broadcasts for p1-p4" << std::endl;
 
-  // Оставшиеся задачи (p5, p6, p7) выполняются в потоках
+  // Оставшиеся задачи (p5, p6, p7) выполняются в потоках на rank 0
   std::vector<std::function<void()>> remaining_tasks;
-  if (rank == 0) {  // Только процесс с рангом 0 распределяет оставшиеся задачи
+  if (rank == 0) {
     std::cout << "[DEBUG] Rank 0 assigning remaining tasks (p5, p6, p7)" << std::endl;
     remaining_tasks.emplace_back([&]() {
       std::cout << "[DEBUG] Thread computing p5" << std::endl;
       p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
       std::cout << "[DEBUG] Thread finished p5, size=" << p5.size() << std::endl;
+      if (!p5.empty()) std::cout << "[DEBUG] p5[0]=" << p5[0] << std::endl;
     });
     remaining_tasks.emplace_back([&]() {
       std::cout << "[DEBUG] Thread computing p6" << std::endl;
       p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
                             num_threads);
       std::cout << "[DEBUG] Thread finished p6, size=" << p6.size() << std::endl;
+      if (!p6.empty()) std::cout << "[DEBUG] p6[0]=" << p6[0] << std::endl;
     });
     remaining_tasks.emplace_back([&]() {
       std::cout << "[DEBUG] Thread computing p7" << std::endl;
       p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
                             num_threads);
       std::cout << "[DEBUG] Thread finished p7, size=" << p7.size() << std::endl;
+      if (!p7.empty()) std::cout << "[DEBUG] p7[0]=" << p7[0] << std::endl;
     });
   }
 
-  // Запуск потоков для оставшихся задач
+  // Запуск потоков
   if (!remaining_tasks.empty()) {
     std::cout << "[DEBUG] Rank " << rank << " launching " << remaining_tasks.size() << " threads for remaining tasks"
               << std::endl;
@@ -280,7 +280,11 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     std::cout << "[DEBUG] Rank " << rank << " finished all threads" << std::endl;
   }
 
-  // Синхронизация: раздача p5, p6, p7 всем процессам
+  // Барьер перед p5–p7
+  std::cout << "[DEBUG] Rank " << rank << " reaching barrier before p5-p7 broadcast" << std::endl;
+  world.barrier();
+
+  // Синхронизация для p5–p7
   if (rank == 0) {
     std::cout << "[DEBUG] Rank 0 broadcasting p5, p6, p7" << std::endl;
   }
@@ -289,6 +293,12 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   boost::mpi::broadcast(world, p7, 0);
   std::cout << "[DEBUG] Rank " << rank << " received p5, p6, p7" << std::endl;
 
+  // Проверка корректности p1–p7
+  if (p1.empty() || p2.empty() || p3.empty() || p4.empty() || p5.empty() || p6.empty() || p7.empty()) {
+    std::cout << "[ERROR] Rank " << rank << " detected empty p1-p7 vectors" << std::endl;
+    return std::vector<double>(size * size, 0.0);  // Возвращаем нулевую матрицу в случае ошибки
+  }
+
   // Формирование результата
   std::cout << "[DEBUG] Rank " << rank << " combining results" << std::endl;
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
@@ -296,18 +306,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
+  std::cout << "[DEBUG] Rank " << rank << " c11[0]=" << (c11.empty() ? 0 : c11[0])
+            << ", c12[0]=" << (c12.empty() ? 0 : c12[0]) << ", c21[0]=" << (c21.empty() ? 0 : c21[0])
+            << ", c22[0]=" << (c22.empty() ? 0 : c22[0]) << std::endl;
+
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
   MergeMatrix(result, c12, 0, half_size, size);
   MergeMatrix(result, c21, half_size, 0, size);
   MergeMatrix(result, c22, half_size, half_size, size);
   std::cout << "[DEBUG] Rank " << rank << " result matrix merged, size=" << result.size() << std::endl;
-
-  // Очистка MPI environment
-  if (env != nullptr) {
-    std::cout << "[DEBUG] Deleting MPI environment" << std::endl;
-    delete env;
-  }
+  if (!result.empty()) std::cout << "[DEBUG] result[0]=" << result[0] << std::endl;
 
   return result;
 }
