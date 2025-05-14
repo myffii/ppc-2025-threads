@@ -5,8 +5,8 @@
 #include <random>
 #include <vector>
 
-#include "core/task/include/task.hpp"
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
+#include "core/task/include/task.hpp"
 
 namespace {
 std::vector<double> GenerateRandomMatrix(int size) {
