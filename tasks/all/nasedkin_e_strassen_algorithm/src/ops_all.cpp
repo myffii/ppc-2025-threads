@@ -356,7 +356,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     world.barrier();
     boost::mpi::broadcast(world, p6, 0);
     world.barrier();
-    boost::mpi::broadcast(world, p7, 0);
+    boost::mpi::broadcast(world, p7, 0);
   }
 
   std::cout << "[DEBUG] Process " << rank << " after broadcast of remaining tasks:" << std::endl;
