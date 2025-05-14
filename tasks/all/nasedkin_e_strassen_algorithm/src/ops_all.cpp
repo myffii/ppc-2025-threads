@@ -186,7 +186,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
     switch (task_id) {
       case 0:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p1, &a11, &a22, &b11, &b22, half_size, num_threads]() {
           if (world_.rank() == 0) {
             std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p1"
                       << std::endl;
@@ -196,7 +196,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         });
         break;
       case 1:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p2, &a21, &a22, &b11, half_size, num_threads]() {
           if (world_.rank() == 0) {
             std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p2"
                       << std::endl;
@@ -205,7 +205,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         });
         break;
       case 2:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p3, &a11, &b12, &b22, half_size, num_threads]() {
           if (world_.rank() == 0) {
             std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p3"
                       << std::endl;
@@ -214,7 +214,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         });
         break;
       case 3:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p4, &a22, &b21, &b11, half_size, num_threads]() {
           if (world_.rank() == 0) {
             std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p4"
                       << std::endl;
@@ -223,15 +223,16 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         });
         break;
       case 4:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p5, &a11, &a12, &b22, half_size, num_threads]() {
           if (world_.rank() == 0) {
-            std::cout << "Process " << world_.rank() << ", Thread " espírito << ": Computing p5" << std::endl;
+            std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p5"
+                      << std::endl;
           }
           p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
         });
         break;
       case 5:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p6, &a21, &a11, &b11, &b12, half_size, num_threads]() {
           if (world_.rank() == 0) {
             std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p6"
                       << std::endl;
@@ -241,7 +242,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         });
         break;
       case 6:
-        threads.emplace_back([&, half_size, num_threads]() {
+        threads.emplace_back([this, &p7, &a12, &a22, &b21, &b22, half_size, num_threads]() {
           if (world_.rank() == 0) {
             std::cout << "Process " << world_.rank() << ", Thread " << std::this_thread::get_id() << ": Computing p7"
                       << std::endl;
@@ -273,12 +274,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<std::vector<double>> gathered_p;
   boost::mpi::all_gather(world_, all_p, gathered_p);
 
-  // Обновление локальных p1–p7
+  // Обновление all_p
   for (int i = 0; i < 7; ++i) {
-    for (int proc = 0; proc < num_procs; ++proc) {
-      if (i % num_procs == proc) {
-        all_p[i] = gathered_p[proc][i];
-      }
+    if (i % num_procs == rank) {
+      all_p[i] = gathered_p[rank][i];
+    } else {
+      int responsible_proc = i % num_procs;
+      all_p[i] = gathered_p[responsible_proc][i];
     }
   }
 
@@ -315,6 +317,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   return result;
 }
+
 void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
@@ -329,8 +332,7 @@ void StrassenAll::MergeMatrix(std::vector<double>& parent, const std::vector<dou
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
-                      parent.begin() + (row_start + i) * parent_size + col_start);
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) *  std::vector<double> result(size * size, 0.0);
   }
 }
 
