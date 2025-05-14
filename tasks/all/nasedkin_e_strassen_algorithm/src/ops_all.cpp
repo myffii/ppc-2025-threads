@@ -53,8 +53,8 @@ bool StrassenAll::PreProcessingImpl() {
   }
 
   // Broadcast matrix dimensions to all processes
-  world_.broadcast(0, matrix_size_);
-  world_.broadcast(0, original_size_);
+  boost::mpi::broadcast(world_, matrix_size_, 0);
+  boost::mpi::broadcast(world_, original_size_, 0);
 
   // Resize matrices on non-root processes
   if (world_.rank() != 0) {
@@ -64,8 +64,8 @@ bool StrassenAll::PreProcessingImpl() {
   }
 
   // Broadcast input matrices to all processes
-  world_.broadcast(0, input_matrix_a_);
-  world_.broadcast(0, input_matrix_b_);
+  boost::mpi::broadcast(world_, input_matrix_a_, 0);
+  boost::mpi::broadcast(world_, input_matrix_b_, 0);
 
   return true;
 }
@@ -92,7 +92,7 @@ bool StrassenAll::ValidationImpl() {
   if (world_.rank() == 0) {
     is_valid = true;  // Set to true since we passed the above checks
   }
-  world_.broadcast(0, is_valid);
+  boost::mpi::broadcast(world_, is_valid, 0);
 
   return is_valid;
 }
@@ -267,7 +267,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
     if (p_vector) {
       // Рассылаем данные от процесса-источника всем остальным
-      world_.broadcast(src_rank, *p_vector);
+      boost::mpi::broadcast(world_, *p_vector, src_rank);
     }
   }
 
