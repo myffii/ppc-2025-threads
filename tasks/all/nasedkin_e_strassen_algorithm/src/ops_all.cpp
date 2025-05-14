@@ -254,6 +254,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   const int world_size = comm.size();
   const int num_tasks = 7;
   std::vector<std::vector<double>> local_results;
+  std::vector<int> local_task_ids;
 
   std::cout << "[MPI Rank " << rank << "] StrassenMultiply: World size=" << world_size << ", computing tasks\n";
 
@@ -286,6 +287,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
         break;
     }
     local_results.push_back(result);
+    local_task_ids.push_back(task_id);
   }
 
   std::cout << "[MPI Rank " << rank << "] Broadcasting results\n";
@@ -293,7 +295,11 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     int owner_rank = task_id % world_size;
     std::vector<double> result(half_size_squared);
     if (rank == owner_rank) {
-      result = local_results[task_id / world_size];
+      auto it = std::find(local_task_ids.begin(), local_task_ids.end(), task_id);
+      if (it != local_task_ids.end()) {
+        int idx = std::distance(local_task_ids.begin(), it);
+        result = local_results[idx];
+      }
     }
     boost::mpi::broadcast(comm, result, owner_rank);
     switch (task_id) {
