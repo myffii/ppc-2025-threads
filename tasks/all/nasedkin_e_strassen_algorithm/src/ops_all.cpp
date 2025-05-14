@@ -1,14 +1,13 @@
-
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 #include <algorithm>
-#include "boost/mpi/collectives/broadcast.hpp"
-#include "boost/serialization/vector.hpp"
 #include <cmath>
 #include <functional>
 #include <thread>
 #include <vector>
 
+#include "boost/mpi/collectives/broadcast.hpp"
+#include "boost/serialization/vector.hpp"
 #include "core/task/include/task.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
