@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include <boost/mpi.hpp>
+#include <boost/mpi/communicator.hpp>
+#include <boost/mpi/environment.hpp>
 #include <cstdint>
 #include <memory>
 #include <random>
@@ -30,18 +32,9 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 }
 
 void RunRandomMatrixTest(int size) {
-  boost::mpi::communicator world;
-  int rank = world.rank();
-
-  std::vector<double> in_a(size * size);
-  std::vector<double> in_b(size * size);
-  if (rank == 0) {
-    in_a = GenerateRandomMatrix(size);
-    in_b = GenerateRandomMatrix(size);
-  }
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
-
+  boost::mpi::communicator comm;
+  std::vector<double> in_a = GenerateRandomMatrix(size);
+  std::vector<double> in_b = GenerateRandomMatrix(size);
   std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
@@ -60,27 +53,16 @@ void RunRandomMatrixTest(int size) {
 }
 
 void RunFixedMatrixTest(int size) {
-  boost::mpi::communicator world;
-  int rank = world.rank();
-
+  boost::mpi::communicator comm;
   std::vector<double> in_a(size * size);
   std::vector<double> in_b(size * size);
-  std::vector<double> expected(size * size);
 
-  // Генерация фиксированных матриц и ожидаемого результата только на процессе 0
-  if (rank == 0) {
-    for (int i = 0; i < size * size; ++i) {
-      in_a[i] = static_cast<double>((size * size) - i);
-      in_b[i] = static_cast<double>(i + 1);
-    }
-    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, size);
+  for (int i = 0; i < size * size; ++i) {
+    in_a[i] = static_cast<double>((size * size) - i);
+    in_b[i] = static_cast<double>(i + 1);
   }
 
-  // Синхронизация in_a, in_b и expected
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
-  boost::mpi::broadcast(world, expected, 0);
-
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, size);
   std::vector<double> out(size * size, 0.0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
@@ -97,23 +79,18 @@ void RunFixedMatrixTest(int size) {
   strassen_task.Run();
   strassen_task.PostProcessing();
 
-  for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
-    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  if (comm.rank() == 0) {
+    for (int i = 0; i < static_cast<int>(expected.size()); ++i) {
+      EXPECT_NEAR(expected[i], out[i], 1e-6);
+    }
   }
 }
 
 void RunRandomMatrixIdentityTest(int size) {
-  boost::mpi::communicator world;
-  int rank = world.rank();
-
-  std::vector<double> in_a(size * size);
-  if (rank == 0) {
-    in_a = GenerateRandomMatrix(size);
-  }
+  boost::mpi::communicator comm;
+  std::vector<double> in_a = GenerateRandomMatrix(size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
   std::vector<double> out(size * size, 0.0);
-
-  boost::mpi::broadcast(world, in_a, 0);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -129,12 +106,15 @@ void RunRandomMatrixIdentityTest(int size) {
   strassen_task.Run();
   strassen_task.PostProcessing();
 
-  for (int i = 0; i < size * size; ++i) {
-    EXPECT_NEAR(in_a[i], out[i], 1e-6);
+  if (comm.rank() == 0) {
+    for (int i = 0; i < size * size; ++i) {
+      EXPECT_NEAR(in_a[i], out[i], 1e-6);
+    }
   }
 }
 
 void RunFixedMatrixIdentityTest(int size) {
+  boost::mpi::communicator comm;
   std::vector<double> in_a(size * size);
   std::vector<double> in_b = GenerateIdentityMatrix(size);
 
@@ -158,13 +138,16 @@ void RunFixedMatrixIdentityTest(int size) {
   strassen_task.Run();
   strassen_task.PostProcessing();
 
-  for (int i = 0; i < size * size; ++i) {
-    EXPECT_NEAR(in_a[i], out[i], 1e-6);
+  if (comm.rank() == 0) {
+    for (int i = 0; i < size * size; ++i) {
+      EXPECT_NEAR(in_a[i], out[i], 1e-6);
+    }
   }
 }
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
+  boost::mpi::communicator comm;
   auto task_data = std::make_shared<ppc::core::TaskData>();
   std::vector<double> a(0);
   std::vector<double> b(0);
@@ -191,10 +174,10 @@ TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_fixed) { RunFixedMatri
 
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
 
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_127x127_random) { RunRandomMatrixTest(64); }
+TEST(nasedkin_e_strassen_algorithm_all, test_matrix_127x127_random) { RunRandomMatrixTest(127); }
 
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_128x128_random) { RunRandomMatrixTest(64); }
+TEST(nasedkin_e_strassen_algorithm_all, test_matrix_128x128_random) { RunRandomMatrixTest(128); }
 
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_255x255_random) { RunRandomMatrixTest(64); }
+TEST(nasedkin_e_strassen_algorithm_all, test_matrix_255x255_random) { RunRandomMatrixTest(255); }
 
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_256x256_random) { RunRandomMatrixTest(64); }
+TEST(nasedkin_e_strassen_algorithm_all, test_matrix_256x256_random) { RunRandomMatrixTest(256); }

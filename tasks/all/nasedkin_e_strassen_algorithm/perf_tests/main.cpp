@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include <boost/mpi.hpp>
+#include <boost/mpi/communicator.hpp>
+#include <boost/mpi/environment.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -26,26 +28,13 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 }  // namespace
 
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
-  boost::mpi::communicator world;
-  int rank = world.rank();
-
+  boost::mpi::communicator comm;
   constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a(kMatrixSize * kMatrixSize);
-  std::vector<double> in_b(kMatrixSize * kMatrixSize);
+  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
-  std::vector<double> expected(kMatrixSize * kMatrixSize);
 
-  // Генерация матриц и ожидаемого результата только на процессе 0
-  if (rank == 0) {
-    in_a = GenerateRandomMatrix(kMatrixSize);
-    in_b = GenerateRandomMatrix(kMatrixSize);
-    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
-  }
-
-  // Синхронизация in_a, in_b и expected на все процессы
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
-  boost::mpi::broadcast(world, expected, 0);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -69,34 +58,25 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->PipelineRun(perf_attr, perf_results);
-  ppc::core::Perf::PrintPerfStatistic(perf_results);
+  if (comm.rank() == 0) {
+    ppc::core::Perf::PrintPerfStatistic(perf_results);
+  }
 
-  for (size_t i = 0; i < out.size(); ++i) {
-    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  if (comm.rank() == 0) {
+    for (size_t i = 0; i < out.size(); ++i) {
+      EXPECT_NEAR(expected[i], out[i], 1e-6);
+    }
   }
 }
 
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
-  boost::mpi::communicator world;
-  int rank = world.rank();
-
+  boost::mpi::communicator comm;
   constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a(kMatrixSize * kMatrixSize);
-  std::vector<double> in_b(kMatrixSize * kMatrixSize);
+  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
+  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
   std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
-  std::vector<double> expected(kMatrixSize * kMatrixSize);
 
-  // Генерация матриц и ожидаемого результата только на процессе 0
-  if (rank == 0) {
-    in_a = GenerateRandomMatrix(kMatrixSize);
-    in_b = GenerateRandomMatrix(kMatrixSize);
-    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
-  }
-
-  // Синхронизация in_a, in_b и expected на все процессы
-  boost::mpi::broadcast(world, in_a, 0);
-  boost::mpi::broadcast(world, in_b, 0);
-  boost::mpi::broadcast(world, expected, 0);
+  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
@@ -120,9 +100,13 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->TaskRun(perf_attr, perf_results);
-  ppc::core::Perf::PrintPerfStatistic(perf_results);
+  if (comm.rank() == 0) {
+    ppc::core::Perf::PrintPerfStatistic(perf_results);
+  }
 
-  for (size_t i = 0; i < out.size(); ++i) {
-    EXPECT_NEAR(expected[i], out[i], 1e-6);
+  if (comm.rank() == 0) {
+    for (size_t i = 0; i < out.size(); ++i) {
+      EXPECT_NEAR(expected[i], out[i], 1e-6);
+    }
   }
 }
