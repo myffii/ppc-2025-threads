@@ -34,8 +34,8 @@ bool StrassenAll::PreProcessingImpl() {
 
   if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
     original_size_ = matrix_size_;
-    input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_, matrix_size_);
-    input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_, matrix_size_);
+    input_matrix_a_ = PadMatrixToPowerOfTwo(input_matrix_a_, matrix_size_, comm_);
+    input_matrix_b_ = PadMatrixToPowerOfTwo(input_matrix_b_, matrix_size_, comm_);
     matrix_size_ = static_cast<int>(std::sqrt(input_matrix_a_.size()));
     std::cout << "[MPI Rank " << comm_.rank() << "] PreProcessing: Padded matrices to size " << matrix_size_ << "x"
               << matrix_size_ << "\n";
@@ -70,7 +70,7 @@ bool StrassenAll::ValidationImpl() {
 bool StrassenAll::RunImpl() {
   std::cout << "[MPI Rank " << comm_.rank() << "] Running StrassenMultiply with matrix size " << matrix_size_ << "x"
             << matrix_size_ << "\n";
-  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_);
+  output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, comm_);
   return true;
 }
 
@@ -78,7 +78,7 @@ bool StrassenAll::PostProcessingImpl() {
   if (original_size_ != matrix_size_) {
     std::cout << "[MPI Rank " << comm_.rank() << "] PostProcessing: Trimming matrix from " << matrix_size_ << "x"
               << matrix_size_ << " to " << original_size_ << "x" << original_size_ << "\n";
-    output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
+    output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_, comm_);
   }
 
   auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
@@ -179,7 +179,8 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
   return result;
 }
 
-std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size) {
+std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size,
+                                                       boost::mpi::communicator comm) {
   int new_size = 1;
   while (new_size < original_size) {
     new_size *= 2;
@@ -190,27 +191,27 @@ std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>
     std::ranges::copy(matrix.begin() + i * original_size, matrix.begin() + (i + 1) * original_size,
                       padded_matrix.begin() + i * new_size);
   }
-  std::cout << "[MPI Rank " << comm_.rank() << "] PadMatrixToPowerOfTwo: Padded from " << original_size << "x"
+  std::cout << "[MPI Rank " << comm.rank() << "] PadMatrixToPowerOfTwo: Padded from " << original_size << "x"
             << original_size << " to " << new_size << "x" << new_size << "\n";
   return padded_matrix;
 }
 
 std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
-                                                          int padded_size) {
+                                                          int padded_size, boost::mpi::communicator comm) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
     std::ranges::copy(matrix.begin() + i * padded_size, matrix.begin() + i * padded_size + original_size,
                       trimmed_matrix.begin() + i * original_size);
   }
-  std::cout << "[MPI Rank " << comm_.rank() << "] TrimMatrixToOriginalSize: Trimmed from " << padded_size << "x"
+  std::cout << "[MPI Rank " << comm.rank() << "] TrimMatrixToOriginalSize: Trimmed from " << padded_size << "x"
             << padded_size << " to " << original_size << "x" << original_size << "\n";
   return trimmed_matrix;
 }
 
-std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
-                                                  int size) {
+std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
+                                                  boost::mpi::communicator comm) {
   if (size <= 32) {
-    std::cout << "[MPI Rank " << comm_.rank() << "] StrassenMultiply: Switching to StandardMultiply for size " << size
+    std::cout << "[MPI Rank " << comm.rank() << "] StrassenMultiply: Switching to StandardMultiply for size " << size
               << "x" << size << "\n";
     return StandardMultiply(a, b, size);
   }
@@ -218,7 +219,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int half_size = size / 2;
   int half_size_squared = half_size * half_size;
 
-  std::cout << "[MPI Rank " << comm_.rank() << "] StrassenMultiply: Processing size " << size << "x" << size
+  std::cout << "[MPI Rank " << comm.rank() << "] StrassenMultiply: Processing size " << size << "x" << size
             << ", half_size=" << half_size << "\n";
 
   std::vector<double> a11(half_size_squared);
@@ -230,15 +231,15 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size_squared);
   std::vector<double> b22(half_size_squared);
 
-  std::cout << "[MPI Rank " << comm_.rank() << "] Splitting matrices\n";
-  SplitMatrix(a, a11, 0, 0, size);
-  SplitMatrix(a, a12, 0, half_size, size);
-  SplitMatrix(a, a21, half_size, 0, size);
-  SplitMatrix(a, a22, half_size, half_size, size);
-  SplitMatrix(b, b11, 0, 0, size);
-  SplitMatrix(b, b12, 0, half_size, size);
-  SplitMatrix(b, b21, half_size, 0, size);
-  SplitMatrix(b, b22, half_size, half_size, size);
+  std::cout << "[MPI Rank " << comm.rank() << "] Splitting matrices\n";
+  SplitMatrix(a, a11, 0, 0, size, comm);
+  SplitMatrix(a, a12, 0, half_size, size, comm);
+  SplitMatrix(a, a21, half_size, 0, size, comm);
+  SplitMatrix(a, a22, half_size, half_size, size, comm);
+  SplitMatrix(b, b11, 0, 0, size, comm);
+  SplitMatrix(b, b12, 0, half_size, size, comm);
+  SplitMatrix(b, b21, half_size, 0, size, comm);
+  SplitMatrix(b, b22, half_size, half_size, size, comm);
 
   std::vector<double> p1(half_size_squared);
   std::vector<double> p2(half_size_squared);
@@ -248,8 +249,8 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> p6(half_size_squared);
   std::vector<double> p7(half_size_squared);
 
-  const int rank = comm_.rank();
-  const int world_size = comm_.size();
+  const int rank = comm.rank();
+  const int world_size = comm.size();
   const int num_tasks = 7;
   std::vector<std::vector<double>> local_results;
 
@@ -260,25 +261,27 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     std::vector<double> result;
     switch (task_id) {
       case 0:
-        result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+        result = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, comm);
         break;
       case 1:
-        result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
+        result = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, comm);
         break;
       case 2:
-        result = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
+        result = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, comm);
         break;
       case 3:
-        result = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
+        result = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, comm);
         break;
       case 4:
-        result = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
+        result = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, comm);
         break;
       case 5:
-        result = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+        result =
+            StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size, comm);
         break;
       case 6:
-        result = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+        result =
+            StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size, comm);
         break;
     }
     local_results.push_back(result);
@@ -291,7 +294,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     if (rank == owner_rank) {
       result = local_results[task_id / world_size];
     }
-    boost::mpi::broadcast(comm_, result, owner_rank);
+    boost::mpi::broadcast(comm, result, owner_rank);
     switch (task_id) {
       case 0:
         p1 = result;
@@ -320,39 +323,39 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::cout << "[MPI Rank " << rank << "] Computing final matrices\n";
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<double> c21 = AddMatrices(p2, p43, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
   std::vector<double> result(size * size);
-  MergeMatrix(result, c11, 0, 0, size);
-  MergeMatrix(result, c12, 0, half_size, size);
-  MergeMatrix(result, c21, half_size, 0, size);
-  MergeMatrix(result, c22, half_size, half_size, size);
+  MergeMatrix(result, c11, 0, 0, size, comm);
+  MergeMatrix(result, c12, 0, half_size, size, comm);
+  MergeMatrix(result, c21, half_size, 0, size, comm);
+  MergeMatrix(result, c22, half_size, half_size, size, comm);
 
   std::cout << "[MPI Rank " << rank << "] StrassenMultiply completed for size " << size << "x" << size << "\n";
   return result;
 }
 
 void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
-                              int col_start, int parent_size) {
+                              int col_start, int parent_size, boost::mpi::communicator comm) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(parent.begin() + (row_start + i) * parent_size + col_start,
                       parent.begin() + (row_start + i) * parent_size + col_start + child_size,
                       child.begin() + i * child_size);
   }
-  std::cout << "[MPI Rank " << comm_.rank() << "] SplitMatrix: Copied from (" << row_start << "," << col_start
+  std::cout << "[MPI Rank " << comm.rank() << "] SplitMatrix: Copied from (" << row_start << "," << col_start
             << ") to child of size " << child_size << "x" << child_size << "\n";
 }
 
 void StrassenAll::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
-                              int col_start, int parent_size) {
+                              int col_start, int parent_size, boost::mpi::communicator comm) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
     std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
                       parent.begin() + (row_start + i) * parent_size + col_start);
   }
-  std::cout << "[MPI Rank " << comm_.rank() << "] MergeMatrix: Copied to (" << row_start << "," << col_start
+  std::cout << "[MPI Rank " << comm.rank() << "] MergeMatrix: Copied to (" << row_start << "," << col_start
             << ") in parent of size " << parent_size << "x" << parent_size << "\n";
 }
 
