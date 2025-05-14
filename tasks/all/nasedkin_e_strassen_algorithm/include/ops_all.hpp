@@ -1,15 +1,16 @@
 #pragma once
 
-#include <boost/mpi.hpp>
-#include <boost/mpi/communicator.hpp>
+#include <mutex>
 #include <utility>
 #include <vector>
 
+#include "boost/mpi/communicator.hpp"
 #include "core/task/include/task.hpp"
+#include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
 
-std::vector<double> StandardMultiply(const std::vector<double> &a, const std::vector<double> &b, int size);
+std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
 
 class StrassenAll : public ppc::core::Task {
  public:
@@ -20,16 +21,17 @@ class StrassenAll : public ppc::core::Task {
   bool PostProcessingImpl() override;
 
  private:
-  std::vector<double> AddMatrices(const std::vector<double> &a, const std::vector<double> &b, int size);
-  std::vector<double> SubtractMatrices(const std::vector<double> &a, const std::vector<double> &b, int size);
-  void SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start, int col_start,
-                   int parent_size);
-  void MergeMatrix(std::vector<double> &parent, const std::vector<double> &child, int row_start, int col_start,
-                   int parent_size);
-  std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size);
-  std::vector<double> TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size, int padded_size);
-  std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size,
-                                       int num_threads);
+  static std::vector<double> AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size);
+  static std::vector<double> SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b, int size);
+  static void SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start, int col_start,
+                          int parent_size);
+  static void MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start, int col_start,
+                          int parent_size);
+  static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size);
+  static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
+                                                      int padded_size);
+  void StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
+                      std::vector<double>& result, std::mutex& mtx);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;

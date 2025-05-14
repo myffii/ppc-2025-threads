@@ -1,8 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <boost/mpi.hpp>
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/environment.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -11,6 +8,7 @@
 #include <vector>
 
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
+#include "boost/mpi/communicator.hpp"
 #include "core/perf/include/perf.hpp"
 #include "core/task/include/task.hpp"
 
@@ -30,11 +28,13 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   boost::mpi::communicator world;
   constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
-
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  std::vector<double> in_a, in_b, out, expected;
+  if (world.rank() == 0) {
+    in_a = GenerateRandomMatrix(kMatrixSize);
+    in_b = GenerateRandomMatrix(kMatrixSize);
+    out.resize(kMatrixSize * kMatrixSize, 0.0);
+    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  }
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   if (world.rank() == 0) {
@@ -60,9 +60,7 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->PipelineRun(perf_attr, perf_results);
-  if (world.rank() == 0) {
-    ppc::core::Perf::PrintPerfStatistic(perf_results);
-  }
+  ppc::core::Perf::PrintPerfStatistic(perf_results);
 
   if (world.rank() == 0) {
     for (size_t i = 0; i < out.size(); ++i) {
@@ -74,11 +72,13 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   boost::mpi::communicator world;
   constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> in_b = GenerateRandomMatrix(kMatrixSize);
-  std::vector<double> out(kMatrixSize * kMatrixSize, 0.0);
-
-  std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  std::vector<double> in_a, in_b, out, expected;
+  if (world.rank() == 0) {
+    in_a = GenerateRandomMatrix(kMatrixSize);
+    in_b = GenerateRandomMatrix(kMatrixSize);
+    out.resize(kMatrixSize * kMatrixSize, 0.0);
+    expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
+  }
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
   if (world.rank() == 0) {
@@ -104,9 +104,7 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->TaskRun(perf_attr, perf_results);
-  if (world.rank() == 0) {
-    ppc::core::Perf::PrintPerfStatistic(perf_results);
-  }
+  ppc::core::Perf::PrintPerfStatistic(perf_results);
 
   if (world.rank() == 0) {
     for (size_t i = 0; i < out.size(); ++i) {
