@@ -60,11 +60,11 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->PipelineRun(perf_attr, perf_results);
-  if (comm.rank() == 0) {
+  if (world.rank() == 0) {
     ppc::core::Perf::PrintPerfStatistic(perf_results);
   }
 
-  if (comm.rank() == 0) {
+  if (world.rank() == 0) {
     for (size_t i = 0; i < out.size(); ++i) {
       EXPECT_NEAR(expected[i], out[i], 1e-6);
     }
@@ -104,11 +104,11 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   auto perf_results = std::make_shared<ppc::core::PerfResults>();
   auto perf_analyzer = std::make_shared<ppc::core::Perf>(test_task);
   perf_analyzer->TaskRun(perf_attr, perf_results);
-  if (comm.rank() == 0) {
+  if (world.rank() == 0) {
     ppc::core::Perf::PrintPerfStatistic(perf_results);
   }
 
-  if (comm.rank() == 0) {
+  if (world.rank() == 0) {
     for (size_t i = 0; i < out.size(); ++i) {
       EXPECT_NEAR(expected[i], out[i], 1e-6);
     }
