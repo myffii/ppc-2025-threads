@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <boost/mpi.hpp>
 #include <boost/mpi/collectives.hpp>
+#include <boost/serialization/vector.hpp>  // NOLINT(*-include-cleaner)
 #include <cmath>
 #include <cstddef>
 #include <functional>
