@@ -25,10 +25,8 @@ bool StrassenAll::PreProcessingImpl() {
   input_matrix_a_.resize(matrix_size_ * matrix_size_);
   input_matrix_b_.resize(matrix_size_ * matrix_size_);
 
-  if (world_.rank() == 0) {
-    std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
-    std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
-  }
+  std::ranges::copy(in_ptr_a, in_ptr_a + input_size, input_matrix_a_.begin());
+  std::ranges::copy(in_ptr_b, in_ptr_b + input_size, input_matrix_b_.begin());
 
   if ((matrix_size_ & (matrix_size_ - 1)) != 0) {
     original_size_ = matrix_size_;
@@ -62,13 +60,21 @@ bool StrassenAll::ValidationImpl() {
 bool StrassenAll::RunImpl() {
   int rank = world_.rank();
 
-  // Синхронизируем входные матрицы
-  boost::mpi::broadcast(world_, input_matrix_a_, 0);
-  boost::mpi::broadcast(world_, input_matrix_b_, 0);
+  // Синхронизируем входные матрицы только на процессе 0
+  if (rank == 0) {
+    boost::mpi::broadcast(world_, input_matrix_a_, 0);
+    boost::mpi::broadcast(world_, input_matrix_b_, 0);
+  } else {
+    world_.barrier();
+    boost::mpi::broadcast(world_, input_matrix_a_, 0);
+    boost::mpi::broadcast(world_, input_matrix_b_, 0);
+  }
 
-  std::cout << "[DEBUG] Process " << rank << ": After input synchronization: "
-            << "input_matrix_a_[0] = " << (input_matrix_a_.empty() ? 0.0 : input_matrix_a_[0])
-            << ", input_matrix_b_[0] = " << (input_matrix_b_.empty() ? 0.0 : input_matrix_b_[0]) << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << ": After input synchronization: "
+              << "input_matrix_a_[0] = " << (input_matrix_a_.empty() ? 0.0 : input_matrix_a_[0])
+              << ", input_matrix_b_[0] = " << (input_matrix_b_.empty() ? 0.0 : input_matrix_b_[0]) << std::endl;
+  }
 
   int num_threads = std::min(16, ppc::util::GetPPCNumThreads());
   output_matrix_ = StrassenMultiply(input_matrix_a_, input_matrix_b_, matrix_size_, num_threads);
@@ -80,10 +86,8 @@ bool StrassenAll::PostProcessingImpl() {
     output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
   }
 
-  if (world_.rank() == 0) {
-    auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
-    std::ranges::copy(output_matrix_, out_ptr);
-  }
+  auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
+  std::ranges::copy(output_matrix_, out_ptr);
   return true;
 }
 
@@ -144,13 +148,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   int rank = world_.rank();
   int world_size = world_.size();
 
-  std::cout << "[DEBUG] Process " << rank << ": Starting StrassenMultiply with size = " << size
-            << ", a[0] = " << (a.empty() ? 0.0 : a[0]) << ", b[0] = " << (b.empty() ? 0.0 : b[0])
-            << ", num_threads = " << num_threads << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << ": Starting StrassenMultiply with size = " << size
+              << ", a[0] = " << (a.empty() ? 0.0 : a[0]) << ", b[0] = " << (b.empty() ? 0.0 : b[0])
+              << ", num_threads = " << num_threads << std::endl;
+  }
 
   // Базовый случай
   if (size <= 32 || world_size <= 1) {
-    std::cout << "[DEBUG] Process " << rank << ": Using StandardMultiply for size = " << size << std::endl;
+    if (rank == 0) {
+      std::cout << "[DEBUG] Process " << rank << ": Using StandardMultiply for size = " << size << std::endl;
+    }
     return StandardMultiply(a, b, size);
   }
 
@@ -185,9 +193,11 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   SplitMatrix(b, b21, half_size, 0, size);
   SplitMatrix(b, b22, half_size, half_size, size);
 
-  std::cout << "[DEBUG] Process " << rank << ": Submatrices sizes: a11 = " << a11.size() << ", a12 = " << a12.size()
-            << ", a21 = " << a21.size() << ", a22 = " << a22.size() << ", b11 = " << b11.size()
-            << ", b12 = " << b12.size() << ", b21 = " << b21.size() << ", b22 = " << b22.size() << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << ": Submatrices sizes: a11 = " << a11.size() << ", a12 = " << a12.size()
+              << ", a21 = " << a21.size() << ", a22 = " << a22.size() << ", b11 = " << b11.size()
+              << ", b12 = " << b12.size() << ", b21 = " << b21.size() << ", b22 = " << b22.size() << std::endl;
+  }
 
   // Инициализация p1–p7
   std::vector<double> p1(half_size_squared, 0.0);
@@ -228,15 +238,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     }
   }
 
-  std::cout << "[DEBUG] Process " << rank << " assigned tasks: ";
-  if (my_task_indices.empty()) {
-    std::cout << "none";
-  } else {
-    for (std::size_t idx : my_task_indices) {
-      std::cout << "p" << (idx + 1) << " ";
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << " assigned tasks: ";
+    if (my_task_indices.empty()) {
+      std::cout << "none";
+    } else {
+      for (std::size_t idx : my_task_indices) {
+        std::cout << "p" << (idx + 1) << " ";
+      }
     }
+    std::cout << std::endl;
   }
-  std::cout << std::endl;
 
   // Выполнение назначенных задач
   for (auto& task : my_tasks) {
@@ -245,28 +257,46 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   // Синхронизация результатов
   world_.barrier();
-  boost::mpi::broadcast(world_, p1, 0);
+  if (rank == 0) {
+    boost::mpi::broadcast(world_, p1, 0);
+  } else {
+    boost::mpi::broadcast(world_, p1, 0);
+  }
   if (world_size > 1) {
     world_.barrier();
-    boost::mpi::broadcast(world_, p2, 1);
+    if (rank == 1) {
+      boost::mpi::broadcast(world_, p2, 1);
+    } else {
+      boost::mpi::broadcast(world_, p2, 1);
+    }
   }
   if (world_size > 2) {
     world_.barrier();
-    boost::mpi::broadcast(world_, p3, 2);
+    if (rank == 2) {
+      boost::mpi::broadcast(world_, p3, 2);
+    } else {
+      boost::mpi::broadcast(world_, p3, 2);
+    }
   }
   if (world_size > 3) {
     world_.barrier();
-    boost::mpi::broadcast(world_, p4, 3);
+    if (rank == 3) {
+      boost::mpi::broadcast(world_, p4, 3);
+    } else {
+      boost::mpi::broadcast(world_, p4, 3);
+    }
   }
 
-  std::cout << "[DEBUG] Process " << rank << " after broadcast of MPI tasks:" << std::endl;
-  std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
-  std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
-  std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
-  std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
-  std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
-  std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
-  std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << " after broadcast of MPI tasks:" << std::endl;
+    std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
+    std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
+    std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
+    std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
+    std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
+    std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
+    std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
+  }
 
   // Оставшиеся задачи на процессе 0
   std::vector<std::function<void()>> remaining_tasks;
@@ -353,14 +383,16 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     boost::mpi::broadcast(world_, p7, 0);
   }
 
-  std::cout << "[DEBUG] Process " << rank << " after broadcast of remaining tasks:" << std::endl;
-  std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
-  std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
-  std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
-  std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
-  std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
-  std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
-  std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << " after broadcast of remaining tasks:" << std::endl;
+    std::cout << "p1[0] = " << (p1.empty() ? 0.0 : p1[0]) << ", size = " << p1.size() << std::endl;
+    std::cout << "p2[0] = " << (p2.empty() ? 0.0 : p2[0]) << ", size = " << p2.size() << std::endl;
+    std::cout << "p3[0] = " << (p3.empty() ? 0.0 : p3[0]) << ", size = " << p3.size() << std::endl;
+    std::cout << "p4[0] = " << (p4.empty() ? 0.0 : p4[0]) << ", size = " << p4.size() << std::endl;
+    std::cout << "p5[0] = " << (p5.empty() ? 0.0 : p5[0]) << ", size = " << p5.size() << std::endl;
+    std::cout << "p6[0] = " << (p6.empty() ? 0.0 : p6[0]) << ", size = " << p6.size() << std::endl;
+    std::cout << "p7[0] = " << (p7.empty() ? 0.0 : p7[0]) << ", size = " << p7.size() << std::endl;
+  }
 
   // Комбинирование результатов
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
@@ -368,11 +400,13 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
   std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
 
-  std::cout << "[DEBUG] Process " << rank << " intermediate submatrices:" << std::endl;
-  std::cout << "c11[0] = " << (c11.empty() ? 0.0 : c11[0]) << ", size = " << c11.size() << std::endl;
-  std::cout << "c12[0] = " << (c12.empty() ? 0.0 : c12[0]) << ", size = " << c12.size() << std::endl;
-  std::cout << "c21[0] = " << (c21.empty() ? 0.0 : c21[0]) << ", size = " << c21.size() << std::endl;
-  std::cout << "c22[0] = " << (c22.empty() ? 0.0 : c22[0]) << ", size = " << c22.size() << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << " intermediate submatrices:" << std::endl;
+    std::cout << "c11[0] = " << (c11.empty() ? 0.0 : c11[0]) << ", size = " << c11.size() << std::endl;
+    std::cout << "c12[0] = " << (c12.empty() ? 0.0 : c12[0]) << ", size = " << c12.size() << std::endl;
+    std::cout << "c21[0] = " << (c21.empty() ? 0.0 : c21[0]) << ", size = " << c21.size() << std::endl;
+    std::cout << "c22[0] = " << (c22.empty() ? 0.0 : c22[0]) << ", size = " << c22.size() << std::endl;
+  }
 
   std::vector<double> result(size * size);
   MergeMatrix(result, c11, 0, 0, size);
@@ -380,8 +414,10 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   MergeMatrix(result, c21, half_size, 0, size);
   MergeMatrix(result, c22, half_size, half_size, size);
 
-  std::cout << "[DEBUG] Process " << rank << ": Final result: result[0] = " << result[0] << ", size = " << result.size()
-            << std::endl;
+  if (rank == 0) {
+    std::cout << "[DEBUG] Process " << rank << ": Final result: result[0] = " << result[0]
+              << ", size = " << result.size() << std::endl;
+  }
 
   return result;
 }
