@@ -210,7 +210,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   // Первый уровень распараллеливания: MPI процессы
   if (world_size > 1) {
     // Распределение задач по MPI процессам
-    int tasks_per_process = 7 / world_size + (7 % world__size > 0 ? 1 : 0);
+    int tasks_per_process = 7 / world_size + (7 % world_size > 0 ? 1 : 0);
     int start_task = rank * tasks_per_process;
     int end_task = std::min(static_cast<int>(computations.size()), (rank + 1) * tasks_per_process);
 
@@ -222,17 +222,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     // Сбор результатов от всех процессов
     for (int i = 0; i < 7; ++i) {
       int source_rank = i / tasks_per_process;
-      if (source_rank >= world_size) source_rank = world__size - 1;
+      if (source_rank >= world_size) source_rank = world_size - 1;
 
       if (rank == source_rank && i >= start_task && i < end_task) {
         // Отправка результата корневому процессу
         if (rank != 0) {
-          boost::mpi::send(world_, 0, i, results[i]);
+          world_.send(0, i, results[i]);
         }
       } else if (rank == 0) {
         // Корневой процесс принимает результат
         if (source_rank != 0) {
-          boost::mpi::recv(world_, source_rank, i, results[i]);
+          world_.recv(source_rank, i, results[i]);
         }
       }
     }
@@ -266,7 +266,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Синхронизация между всеми процессами
-  boost::mpi::barrier(world_);
+  world_.barrier();
 
   // Формирование конечного результата только в корневом процессе
   std::vector<double> result(size * size);
