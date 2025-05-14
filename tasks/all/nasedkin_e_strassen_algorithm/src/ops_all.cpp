@@ -1,6 +1,8 @@
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 #include <algorithm>
+#include <boost/mpi.hpp>
+#include <boost/mpi/collectives.hpp>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -49,8 +51,8 @@ bool StrassenAll::PreProcessingImpl() {
   }
 
   // Broadcast matrix size and original size to all processes
-  world_.broadcast(0, matrix_size_);
-  world_.broadcast(0, original_size_);
+  boost::mpi::broadcast(world_, matrix_size_, 0);
+  boost::mpi::broadcast(world_, original_size_, 0);
 
   // Reserve memory for matrices on all processes
   if (world_.rank() != 0) {
@@ -60,8 +62,8 @@ bool StrassenAll::PreProcessingImpl() {
   }
 
   // Broadcast matrices to all processes
-  world_.broadcast(0, input_matrix_a_);
-  world_.broadcast(0, input_matrix_b_);
+  boost::mpi::broadcast(world_, input_matrix_a_, 0);
+  boost::mpi::broadcast(world_, input_matrix_b_, 0);
 
   return true;
 }
@@ -208,7 +210,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   // Первый уровень распараллеливания: MPI процессы
   if (world_size > 1) {
     // Распределение задач по MPI процессам
-    int tasks_per_process = 7 / world_size + (7 % world_size > 0 ? 1 : 0);
+    int tasks_per_process = 7 / world_size + (7 % world__size > 0 ? 1 : 0);
     int start_task = rank * tasks_per_process;
     int end_task = std::min(static_cast<int>(computations.size()), (rank + 1) * tasks_per_process);
 
@@ -220,17 +222,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
     // Сбор результатов от всех процессов
     for (int i = 0; i < 7; ++i) {
       int source_rank = i / tasks_per_process;
-      if (source_rank >= world_size) source_rank = world_size - 1;
+      if (source_rank >= world_size) source_rank = world__size - 1;
 
       if (rank == source_rank && i >= start_task && i < end_task) {
         // Отправка результата корневому процессу
         if (rank != 0) {
-          world_.send(0, i, results[i]);
+          boost::mpi::send(world_, 0, i, results[i]);
         }
       } else if (rank == 0) {
         // Корневой процесс принимает результат
         if (source_rank != 0) {
-          world_.recv(source_rank, i, results[i]);
+          boost::mpi::recv(world_, source_rank, i, results[i]);
         }
       }
     }
@@ -264,7 +266,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Синхронизация между всеми процессами
-  world_.barrier();
+  boost::mpi::barrier(world_);
 
   // Формирование конечного результата только в корневом процессе
   std::vector<double> result(size * size);
@@ -293,7 +295,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   }
 
   // Рассылаем результат всем процессам
-  world_.broadcast(0, result);
+  boost::mpi::broadcast(world_, result, 0);
 
   return result;
 }
