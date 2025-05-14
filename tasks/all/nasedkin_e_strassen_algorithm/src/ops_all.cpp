@@ -154,6 +154,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
 
 std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size,
                                                   int num_threads) {
+  // Базовый случай: для малых матриц используем стандартное умножение
   if (size <= 32) {
     return StandardMultiply(a, b, size);
   }
@@ -170,6 +171,7 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   std::vector<double> b21(half_size_squared);
   std::vector<double> b22(half_size_squared);
 
+  // Все процессы делают одинаковое разделение матриц
   SplitMatrix(a, a11, 0, 0, size);
   SplitMatrix(a, a12, 0, half_size, size);
   SplitMatrix(a, a21, half_size, 0, size);
@@ -182,23 +184,27 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
 
   std::vector<double> p1, p2, p3, p4, p5, p6, p7;
 
-  // Распределение задач между MPI-процессами
+  // Получаем информацию о MPI окружении
   int world_size = world_.size();
   int my_rank = world_.rank();
 
-  // Определяем, какие умножения будут выполнены на каждом процессе
-  // Используем гибридный подход: распределяем 7 умножений по MPI-процессам
-  // каждый процесс использует внутри себя многопоточность через std::thread
-
-  // Процессор с рангом r выполняет умножения с индексами r, r+world_size, r+2*world_size, ...
-  std::vector<int> my_multiplications;
-  for (int i = my_rank; i < 7; i += world_size) {
-    my_multiplications.push_back(i);
-  }
-
-  // Локальные вычисления для каждого процесса
-  for (int mult_idx : my_multiplications) {
-    switch (mult_idx) {
+  // Ключевое изменение - используем корневой процесс для выполнения рекурсивных вызовов,
+  // чтобы обеспечить согласованность MPI операций
+  if (world_size <= 1 || size <= 128) {
+    // Последовательное выполнение на малых размерах или при одном процессе
+    p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size, num_threads);
+    p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size, num_threads);
+    p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size, num_threads);
+    p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size, num_threads);
+    p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size, num_threads);
+    p6 = StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size,
+                          num_threads);
+    p7 = StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size,
+                          num_threads);
+  } else {
+    // Параллельное выполнение на больших размерах и при нескольких процессах
+    // Распределяем задачи между процессами
+    switch (my_rank % 7) {
       case 0:
         p1 = StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size,
                               num_threads);
@@ -224,54 +230,48 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
                               num_threads);
         break;
     }
+
+    // Инициализируем пустые векторы для всех P
+    if (p1.empty()) p1.resize(half_size_squared, 0.0);
+    if (p2.empty()) p2.resize(half_size_squared, 0.0);
+    if (p3.empty()) p3.resize(half_size_squared, 0.0);
+    if (p4.empty()) p4.resize(half_size_squared, 0.0);
+    if (p5.empty()) p5.resize(half_size_squared, 0.0);
+    if (p6.empty()) p6.resize(half_size_squared, 0.0);
+    if (p7.empty()) p7.resize(half_size_squared, 0.0);
+
+    // Собираем результаты со всех процессов с использованием операции reduce
+    // Это важное изменение - заменяем broadcast на reduce для более эффективной синхронизации
+    boost::mpi::reduce(world_, p1.data(), static_cast<int>(p1.size()), p1.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p1, 0);
+
+    boost::mpi::reduce(world_, p2.data(), static_cast<int>(p2.size()), p2.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p2, 0);
+
+    boost::mpi::reduce(world_, p3.data(), static_cast<int>(p3.size()), p3.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p3, 0);
+
+    boost::mpi::reduce(world_, p4.data(), static_cast<int>(p4.size()), p4.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p4, 0);
+
+    boost::mpi::reduce(world_, p5.data(), static_cast<int>(p5.size()), p5.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p5, 0);
+
+    boost::mpi::reduce(world_, p6.data(), static_cast<int>(p6.size()), p6.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p6, 0);
+
+    boost::mpi::reduce(world_, p7.data(), static_cast<int>(p7.size()), p7.data(), std::plus<double>(), 0);
+    world_.barrier();
+    boost::mpi::broadcast(world_, p7, 0);
   }
 
-  // Если размер не был вычислен (другой процесс делал эту работу), инициализируем пустым вектором нужного размера
-  if (p1.empty() && half_size > 0) p1.resize(half_size_squared);
-  if (p2.empty() && half_size > 0) p2.resize(half_size_squared);
-  if (p3.empty() && half_size > 0) p3.resize(half_size_squared);
-  if (p4.empty() && half_size > 0) p4.resize(half_size_squared);
-  if (p5.empty() && half_size > 0) p5.resize(half_size_squared);
-  if (p6.empty() && half_size > 0) p6.resize(half_size_squared);
-  if (p7.empty() && half_size > 0) p7.resize(half_size_squared);
-
-  // Собираем результаты со всех процессов
-  for (int i = 0; i < 7; ++i) {
-    int src_rank = i % world_size;  // Процесс, который вычислил результат
-
-    // Выбираем соответствующий вектор и синхронизируем его
-    std::vector<double>* p_vector = nullptr;
-    switch (i) {
-      case 0:
-        p_vector = &p1;
-        break;
-      case 1:
-        p_vector = &p2;
-        break;
-      case 2:
-        p_vector = &p3;
-        break;
-      case 3:
-        p_vector = &p4;
-        break;
-      case 4:
-        p_vector = &p5;
-        break;
-      case 5:
-        p_vector = &p6;
-        break;
-      case 6:
-        p_vector = &p7;
-        break;
-    }
-
-    if (p_vector) {
-      // Рассылаем данные от процесса-источника всем остальным
-      boost::mpi::broadcast(world_, *p_vector, src_rank);
-    }
-  }
-
-  // Все процессы теперь имеют полные данные для расчета
+  // Все процессы собирают результат
   std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
   std::vector<double> c12 = AddMatrices(p3, p5, half_size);
   std::vector<double> c21 = AddMatrices(p2, p4, half_size);
