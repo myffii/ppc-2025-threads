@@ -13,7 +13,7 @@ std::vector<double> StandardMultiply(const std::vector<double> &a, const std::ve
 
 class StrassenAll : public ppc::core::Task {
  public:
-  explicit StrassenAll(ppc::core::TaskDataPtr task_data);
+  explicit StrassenAll(ppc::core::TaskDataPtr task_data) : Task(std::move(task_data)) {}
   bool PreProcessingImpl() override;
   bool ValidationImpl() override;
   bool RunImpl() override;
