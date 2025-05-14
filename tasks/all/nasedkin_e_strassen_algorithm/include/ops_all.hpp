@@ -30,6 +30,7 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size);
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
                                                       int padded_size);
+  static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
   void StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
                       std::vector<double>& result, std::mutex& mtx);
 

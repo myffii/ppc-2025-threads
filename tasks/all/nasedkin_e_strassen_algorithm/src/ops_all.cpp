@@ -8,7 +8,6 @@
 
 #include "boost/mpi/collectives/broadcast.hpp"
 #include "boost/serialization/vector.hpp"
-#include "core/task/include/task.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
 
@@ -68,6 +67,58 @@ bool StrassenAll::ValidationImpl() {
   }
   boost::mpi::broadcast(world_, valid, 0);
   return valid;
+}
+
+std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
+                                                  int size) {
+  if (size <= 32) {
+    return StandardMultiply(a, b, size);
+  }
+
+  int half_size = size / 2;
+  int half_size_squared = half_size * half_size;
+
+  std::vector<double> a11(half_size_squared);
+  std::vector<double> a12(half_size_squared);
+  std::vector<double> a21(half_size_squared);
+  std::vector<double> a22(half_size_squared);
+  std::vector<double> b11(half_size_squared);
+  std::vector<double> b12(half_size_squared);
+  std::vector<double> b21(half_size_squared);
+  std::vector<double> b22(half_size_squared);
+
+  SplitMatrix(a, a11, 0, 0, size);
+  SplitMatrix(a, a12, 0, half_size, size);
+  SplitMatrix(a, a21, half_size, 0, size);
+  SplitMatrix(a, a22, half_size, half_size, size);
+  SplitMatrix(b, b11, 0, 0, size);
+  SplitMatrix(b, b12, 0, half_size, size);
+  SplitMatrix(b, b21, half_size, 0, size);
+  SplitMatrix(b, b22, half_size, half_size, size);
+
+  std::vector<double> p1 =
+      StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+  std::vector<double> p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
+  std::vector<double> p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
+  std::vector<double> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
+  std::vector<double> p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
+  std::vector<double> p6 =
+      StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  std::vector<double> p7 =
+      StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+
+  std::vector<double> result(size * size);
+  MergeMatrix(result, c11, 0, 0, size);
+  MergeMatrix(result, c12, 0, half_size, size);
+  MergeMatrix(result, c21, half_size, 0, size);
+  MergeMatrix(result, c22, half_size, half_size, size);
+
+  return result;
 }
 
 void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
@@ -150,7 +201,7 @@ bool StrassenAll::RunImpl() {
   size_t prods_per_process = num_prods / world_.size();
   size_t remainder = num_prods % world_.size();
   size_t start_prod = world_.rank() * prods_per_process + std::min<size_t>(world_.rank(), remainder);
-  size_t end_prod = start_prod + prods_per_process + (world_.rank() < remainder ? 1 : 0);
+  size_t end_prod = start_prod + prods_per_process + (static_cast<size_t>(world_.rank()) < remainder ? 1 : 0);
 
   int half_size = matrix_size_ / 2;
   std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
