@@ -182,7 +182,7 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double>& a, con
       size_t num_threads = ppc::util::GetPPCNumThreads();
       std::mutex local_mtx;
       for (size_t t = 0; t < num_threads; ++t) {
-        threads.emplace_back([this, &inputs_a, &inputs_b, prod_idx, half_size, &local_result, &local_mtx]() {
+        threads.emplace_back([&inputs_a, &inputs_b, prod_idx, half_size, &local_result, &local_mtx]() {
           auto temp = StrassenMultiply(inputs_a[prod_idx], inputs_b[prod_idx], half_size);
           std::lock_guard<std::mutex> lock(local_mtx);
           local_result = temp;
