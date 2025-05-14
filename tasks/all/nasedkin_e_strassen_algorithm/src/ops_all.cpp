@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <boost/mpi.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cmath>
 #include <functional>
 #include <iostream>
