@@ -271,17 +271,17 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   all_p[5] = p6;
   all_p[6] = p7;
 
-  std::vector<std::vector<double>> gathered_p;
-  boost::mpi::all_gather(world_, all_p, gathered_p);
-
-  // Обновление all_p
+  // Сбор каждой подматрицы отдельно
   for (int i = 0; i < 7; ++i) {
+    std::vector<std::vector<double>> gathered_p_i;
     if (i % num_procs == rank) {
-      all_p[i] = gathered_p[rank][i];
+      boost::mpi::all_gather(world_, all_p[i], gathered_p_i);
     } else {
-      int responsible_proc = i % num_procs;
-      all_p[i] = gathered_p[responsible_proc][i];
+      boost::mpi::all_gather(world_, std::vector<double>(half_size_squared, 0.0), gathered_p_i);
     }
+    // Копируем результат от ответственного процесса
+    int responsible_proc = i % num_procs;
+    all_p[i] = gathered_p_i[responsible_proc];
   }
 
   p1 = all_p[0];
@@ -332,7 +332,8 @@ void StrassenAll::MergeMatrix(std::vector<double>& parent, const std::vector<dou
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
-    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) *  std::vector<double> result(size * size, 0.0);
+    std::ranges::copy(child.begin() + i * child_size, child.begin() + (i + 1) * child_size,
+                      parent.begin() + (row_start + i) * parent_size + col_start);
   }
 }
 
