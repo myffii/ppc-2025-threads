@@ -37,12 +37,14 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
-  task_data->inputs_count.emplace_back(in_a.size());
-  task_data->inputs_count.emplace_back(in_b.size());
-  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
-  task_data->outputs_count.emplace_back(out.size());
+  if (world.rank() == 0) {
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+    task_data->inputs_count.emplace_back(in_a.size());
+    task_data->inputs_count.emplace_back(in_b.size());
+    task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+    task_data->outputs_count.emplace_back(out.size());
+  }
 
   auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data);
 
@@ -79,12 +81,14 @@ TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   std::vector<double> expected = nasedkin_e_strassen_algorithm_all::StandardMultiply(in_a, in_b, kMatrixSize);
 
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
-  task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
-  task_data->inputs_count.emplace_back(in_a.size());
-  task_data->inputs_count.emplace_back(in_b.size());
-  task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
-  task_data->outputs_count.emplace_back(out.size());
+  if (world.rank() == 0) {
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_a.data()));
+    task_data->inputs.emplace_back(reinterpret_cast<uint8_t*>(in_b.data()));
+    task_data->inputs_count.emplace_back(in_a.size());
+    task_data->inputs_count.emplace_back(in_b.size());
+    task_data->outputs.emplace_back(reinterpret_cast<uint8_t*>(out.data()));
+    task_data->outputs_count.emplace_back(out.size());
+  }
 
   auto test_task = std::make_shared<nasedkin_e_strassen_algorithm_all::StrassenAll>(task_data);
 

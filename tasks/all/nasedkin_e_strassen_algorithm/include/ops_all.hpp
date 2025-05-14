@@ -23,21 +23,20 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> AddMatrices(const std::vector<double> &a, const std::vector<double> &b, int size);
   static std::vector<double> SubtractMatrices(const std::vector<double> &a, const std::vector<double> &b, int size);
   static void SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start, int col_start,
-                          int parent_size, boost::mpi::communicator comm);
+                          int parent_size);
   static void MergeMatrix(std::vector<double> &parent, const std::vector<double> &child, int row_start, int col_start,
-                          int parent_size, boost::mpi::communicator comm);
-  static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size,
-                                                   boost::mpi::communicator comm);
+                          int parent_size);
+  static std::vector<double> PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size);
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
-                                                      int padded_size, boost::mpi::communicator comm);
+                                                      int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b, int size,
-                                              boost::mpi::communicator comm);
+                                              int num_threads);
 
   std::vector<double> input_matrix_a_, input_matrix_b_;
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
-  boost::mpi::communicator comm_;
+  boost::mpi::communicator world_;
 };
 
 }  // namespace nasedkin_e_strassen_algorithm_all
