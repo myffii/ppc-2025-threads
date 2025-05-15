@@ -5,7 +5,9 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <limits>
 #include <mutex>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
