@@ -1,6 +1,7 @@
 #include "all/nasedkin_e_strassen_algorithm/include/ops_all.hpp"
 
 #include <algorithm>
+#include <boost/serialization/vector.hpp>  // NOLINT(*-include-cleaner)
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -97,7 +98,7 @@ bool StrassenAll::RunImpl() {
   std::vector<std::thread> threads;
 
   for (size_t i = world_.rank(); i < kNumProds; i += world_.size()) {
-    threads.emplace_back(&StrassenAll::StrassenWorker, this, i, std::cref(input_matrix_a_), std::cref(input_matrix_b_),
+    threads.emplace_back(&StrassenAll::StrassenWorker, i, std::cref(input_matrix_a_), std::cref(input_matrix_b_),
                          matrix_size_, std::ref(products[i]), std::ref(mtx));
   }
   for (auto &t : threads) {
