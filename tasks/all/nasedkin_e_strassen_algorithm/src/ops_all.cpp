@@ -2,12 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
+#include <mutex>
 #include <thread>
 #include <vector>
 
 #include "boost/mpi/collectives/broadcast.hpp"
-#include "boost/serialization/vector.hpp"
 #include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
@@ -71,12 +72,16 @@ bool StrassenAll::ValidationImpl() {
 }
 
 bool StrassenAll::RunImpl() {
-  constexpr int num_prods = 7;
+  constexpr int kNumProds = 7;
   int half_size = matrix_size_ / 2;
-  std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
-      a22(half_size * half_size);
-  std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
-      b22(half_size * half_size);
+  std::vector<double> a11(half_size * half_size);
+  std::vector<double> a12(half_size * half_size);
+  std::vector<double> a21(half_size * half_size);
+  std::vector<double> a22(half_size * half_size);
+  std::vector<double> b11(half_size * half_size);
+  std::vector<double> b12(half_size * half_size);
+  std::vector<double> b21(half_size * half_size);
+  std::vector<double> b22(half_size * half_size);
 
   SplitMatrix(input_matrix_a_, a11, 0, 0, matrix_size_);
   SplitMatrix(input_matrix_a_, a12, 0, half_size, matrix_size_);
@@ -87,24 +92,29 @@ bool StrassenAll::RunImpl() {
   SplitMatrix(input_matrix_b_, b21, half_size, 0, matrix_size_);
   SplitMatrix(input_matrix_b_, b22, half_size, half_size, matrix_size_);
 
-  std::vector<std::vector<double>> products(num_prods, std::vector<double>(half_size * half_size));
+  std::vector<std::vector<double>> products(kNumProds, std::vector<double>(half_size * half_size));
   std::mutex mtx;
   std::vector<std::thread> threads;
 
-  for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
+  for (size_t i = world_.rank(); i < kNumProds; i += world_.size()) {
     threads.emplace_back(&StrassenAll::StrassenWorker, this, i, std::cref(input_matrix_a_), std::cref(input_matrix_b_),
                          matrix_size_, std::ref(products[i]), std::ref(mtx));
   }
-  for (auto &t : threads) t.join();
+  for (auto &t : threads) {
+    t.join();
+  }
 
   if (world_.rank() == 0) {
-    std::vector<std::vector<double>> all_products(num_prods, std::vector<double>(half_size * half_size));
-    for (size_t i = 0; i < num_prods; ++i) {
+    std::vector<std::vector<double>> all_products(kNumProds, std::vector<double>(half_size * half_size));
+    for (size_t i = 0; i < kNumProds; ++i) {
       if (i % world_.size() == 0) {
         all_products[i] = products[i];
       } else {
-        int src = i % world_.size();
-        world_.recv(src, i, all_products[i]);
+        size_t src = i % world_.size();
+        if (i > static_cast<size_t>(std::numeric_limits<int>::max())) {
+          throw std::runtime_error("Tag value too large for int");
+        }
+        world_.recv(static_cast<int>(src), static_cast<int>(i), all_products[i]);
       }
     }
 
@@ -123,8 +133,11 @@ bool StrassenAll::RunImpl() {
     MergeMatrix(output_matrix_, c21, half_size, 0, matrix_size_);
     MergeMatrix(output_matrix_, c22, half_size, half_size, matrix_size_);
   } else {
-    for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
-      world_.send(0, i, products[i]);
+    for (size_t i = world_.rank(); i < kNumProds; i += world_.size()) {
+      if (i > static_cast<size_t>(std::numeric_limits<int>::max())) {
+        throw std::runtime_error("Tag value too large for int");
+      }
+      world_.send(0, static_cast<int>(i), products[i]);
     }
   }
 
@@ -139,10 +152,14 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
     local_result = StandardMultiply(a, b, size);
   } else {
     int half_size = size / 2;
-    std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
-        a22(half_size * half_size);
-    std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
-        b22(half_size * half_size);
+    std::vector<double> a11(half_size * half_size);
+    std::vector<double> a12(half_size * half_size);
+    std::vector<double> a21(half_size * half_size);
+    std::vector<double> a22(half_size * half_size);
+    std::vector<double> b11(half_size * half_size);
+    std::vector<double> b12(half_size * half_size);
+    std::vector<double> b21(half_size * half_size);
+    std::vector<double> b22(half_size * half_size);
 
     SplitMatrix(a, a11, 0, 0, size);
     SplitMatrix(a, a12, 0, half_size, size);
@@ -153,7 +170,8 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
     SplitMatrix(b, b21, half_size, 0, size);
     SplitMatrix(b, b22, half_size, half_size, size);
 
-    std::vector<std::vector<double>> inputs_a(7), inputs_b(7);
+    std::vector<std::vector<double>> inputs_a(7);
+    std::vector<std::vector<double>> inputs_b(7);
     switch (prod_idx) {
       case 0:
         inputs_a[0] = AddMatrices(a11, a22, half_size);
@@ -183,6 +201,8 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
         inputs_a[6] = SubtractMatrices(a12, a22, half_size);
         inputs_b[6] = AddMatrices(b21, b22, half_size);
         break;
+      default:
+        break;
     }
 
     local_result.resize(half_size * half_size);
@@ -191,6 +211,7 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
     } else {
       std::vector<std::thread> threads;
       size_t num_threads = ppc::util::GetPPCNumThreads();
+      threads.reserve(num_threads);
       std::mutex local_mtx;
       for (size_t t = 0; t < num_threads; ++t) {
         threads.emplace_back([&inputs_a, &inputs_b, prod_idx, half_size, &local_result, &local_mtx]() {
@@ -199,7 +220,9 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
           local_result = temp;
         });
       }
-      for (auto &t : threads) t.join();
+      for (auto &t : threads) {
+        t.join();
+      }
     }
   }
 
