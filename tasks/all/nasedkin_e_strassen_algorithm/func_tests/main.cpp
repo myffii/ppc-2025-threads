@@ -172,8 +172,8 @@ void RunFixedMatrixIdentityTest(int size) {
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
   boost::mpi::communicator world;
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  std::vector<double> in_a(0);
-  std::vector<double> in_b(0);
+  std::vector<double> a(0);
+  std::vector<double> b(0);
   std::vector<double> out(0);
   if (world.rank() == 0) {
     task_data->inputs = {reinterpret_cast<uint8_t *>(a.data()), reinterpret_cast<uint8_t *>(b.data())};

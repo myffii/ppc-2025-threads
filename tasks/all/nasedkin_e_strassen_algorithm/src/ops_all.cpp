@@ -8,7 +8,7 @@
 
 #include "boost/mpi/collectives/broadcast.hpp"
 #include "boost/serialization/vector.hpp"
-#include "core/task/include/task.hpp"
+#include "core/util/include/util.hpp"
 
 namespace nasedkin_e_strassen_algorithm_all {
 
