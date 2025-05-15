@@ -30,10 +30,11 @@ class StrassenAll : public ppc::core::Task {
   static std::vector<double> TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
-  void StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
-                      std::vector<double>& result, std::mutex& mtx);
+  static void StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
+                             std::vector<double>& result, std::mutex& mtx);
 
-  std::vector<double> input_matrix_a_, input_matrix_b_;
+  std::vector<double> input_matrix_a_;
+  std::vector<double> input_matrix_b_;
   std::vector<double> output_matrix_;
   int matrix_size_{};
   int original_size_{};
