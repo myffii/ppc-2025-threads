@@ -14,8 +14,8 @@ namespace nasedkin_e_strassen_algorithm_all {
 bool StrassenAll::PreProcessingImpl() {
   if (world_.rank() == 0) {
     unsigned int input_size = task_data->inputs_count[0];
-    auto* in_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
-    auto* in_ptr_b = reinterpret_cast<double*>(task_data->inputs[1]);
+    auto *in_ptr_a = reinterpret_cast<double *>(task_data->inputs[0]);
+    auto *in_ptr_b = reinterpret_cast<double *>(task_data->inputs[1]);
 
     matrix_size_ = static_cast<int>(std::sqrt(input_size));
     input_matrix_a_.resize(matrix_size_ * matrix_size_);
@@ -64,12 +64,16 @@ bool StrassenAll::ValidationImpl() {
       int size_output = static_cast<int>(std::sqrt(output_size));
       valid = (size_a == size_b) && (size_a == size_output);
     }
+    // Проверка количества процессов (1–4)
+    if (world_.size() < 1 || world_.size() > 4) {
+      valid = false;
+    }
   }
   boost::mpi::broadcast(world_, valid, 0);
   return valid;
 }
 
-std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b,
+std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
                                                   int size) {
   if (size <= 32) {
     return StandardMultiply(a, b, size);
@@ -121,8 +125,8 @@ std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double>& a, 
   return result;
 }
 
-void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
-                                 std::vector<double>& result, std::mutex& mtx) {
+void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, const std::vector<double> &b, int size,
+                                 std::vector<double> &result, std::mutex &mtx) {
   std::vector<double> local_result;
   if (size <= 32) {
     local_result = StandardMultiply(a, b, size);
@@ -188,7 +192,7 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double>& a, con
           local_result = temp;
         });
       }
-      for (auto& t : threads) t.join();
+      for (auto &t : threads) t.join();
     }
   }
 
@@ -198,11 +202,6 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double>& a, con
 
 bool StrassenAll::RunImpl() {
   constexpr int num_prods = 7;
-  size_t prods_per_process = num_prods / world_.size();
-  size_t remainder = num_prods % world_.size();
-  size_t start_prod = world_.rank() * prods_per_process + std::min<size_t>(world_.rank(), remainder);
-  size_t end_prod = start_prod + prods_per_process + (static_cast<size_t>(world_.rank()) < remainder ? 1 : 0);
-
   int half_size = matrix_size_ / 2;
   std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
       a22(half_size * half_size);
@@ -222,19 +221,21 @@ bool StrassenAll::RunImpl() {
   std::mutex mtx;
   std::vector<std::thread> threads;
 
-  for (size_t i = start_prod; i < end_prod; ++i) {
+  // Циклическое распределение задач между процессами
+  for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
     threads.emplace_back(&StrassenAll::StrassenWorker, this, i, std::cref(input_matrix_a_), std::cref(input_matrix_b_),
                          matrix_size_, std::ref(products[i]), std::ref(mtx));
   }
-  for (auto& t : threads) t.join();
+  for (auto &t : threads) t.join();
 
+  // Сбор результатов на процессе с рангом 0
   if (world_.rank() == 0) {
     std::vector<std::vector<double>> all_products(num_prods, std::vector<double>(half_size * half_size));
     for (size_t i = 0; i < num_prods; ++i) {
-      if (i >= start_prod && i < end_prod) {
+      if (i % world_.size() == 0) {
         all_products[i] = products[i];
       } else {
-        int src = i / prods_per_process + (i % prods_per_process < remainder ? i % prods_per_process : remainder);
+        int src = i % world_.size();
         world_.recv(src, i, all_products[i]);
       }
     }
@@ -254,7 +255,7 @@ bool StrassenAll::RunImpl() {
     MergeMatrix(output_matrix_, c21, half_size, 0, matrix_size_);
     MergeMatrix(output_matrix_, c22, half_size, half_size, matrix_size_);
   } else {
-    for (size_t i = start_prod; i < end_prod; ++i) {
+    for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
       world_.send(0, i, products[i]);
     }
   }
@@ -268,26 +269,26 @@ bool StrassenAll::PostProcessingImpl() {
     if (original_size_ != matrix_size_) {
       output_matrix_ = TrimMatrixToOriginalSize(output_matrix_, original_size_, matrix_size_);
     }
-    auto* out_ptr = reinterpret_cast<double*>(task_data->outputs[0]);
+    auto *out_ptr = reinterpret_cast<double *>(task_data->outputs[0]);
     std::ranges::copy(output_matrix_, out_ptr);
   }
   return true;
 }
 
-std::vector<double> StrassenAll::AddMatrices(const std::vector<double>& a, const std::vector<double>& b, int size) {
+std::vector<double> StrassenAll::AddMatrices(const std::vector<double> &a, const std::vector<double> &b, int size) {
   std::vector<double> result(size * size);
   std::ranges::transform(a, b, result.begin(), std::plus<>());
   return result;
 }
 
-std::vector<double> StrassenAll::SubtractMatrices(const std::vector<double>& a, const std::vector<double>& b,
+std::vector<double> StrassenAll::SubtractMatrices(const std::vector<double> &a, const std::vector<double> &b,
                                                   int size) {
   std::vector<double> result(size * size);
   std::ranges::transform(a, b, result.begin(), std::minus<>());
   return result;
 }
 
-std::vector<double> StandardMultiply(const std::vector<double>& a, const std::vector<double>& b, int size) {
+std::vector<double> StandardMultiply(const std::vector<double> &a, const std::vector<double> &b, int size) {
   std::vector<double> result(size * size, 0.0);
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
@@ -299,7 +300,7 @@ std::vector<double> StandardMultiply(const std::vector<double>& a, const std::ve
   return result;
 }
 
-std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>& matrix, int original_size) {
+std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double> &matrix, int original_size) {
   int new_size = 1;
   while (new_size < original_size) {
     new_size *= 2;
@@ -312,7 +313,7 @@ std::vector<double> StrassenAll::PadMatrixToPowerOfTwo(const std::vector<double>
   return padded_matrix;
 }
 
-std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<double>& matrix, int original_size,
+std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<double> &matrix, int original_size,
                                                           int padded_size) {
   std::vector<double> trimmed_matrix(original_size * original_size);
   for (int i = 0; i < original_size; ++i) {
@@ -322,7 +323,7 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
   return trimmed_matrix;
 }
 
-void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<double>& child, int row_start,
+void StrassenAll::SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
@@ -332,7 +333,7 @@ void StrassenAll::SplitMatrix(const std::vector<double>& parent, std::vector<dou
   }
 }
 
-void StrassenAll::MergeMatrix(std::vector<double>& parent, const std::vector<double>& child, int row_start,
+void StrassenAll::MergeMatrix(std::vector<double> &parent, const std::vector<double> &child, int row_start,
                               int col_start, int parent_size) {
   int child_size = static_cast<int>(std::sqrt(child.size()));
   for (int i = 0; i < child_size; ++i) {
