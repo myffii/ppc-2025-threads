@@ -28,7 +28,10 @@ std::vector<double> GenerateRandomMatrix(size_t size) {
 TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
   boost::mpi::communicator world;
   constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a, in_b, out, expected;
+  std::vector<double> in_a;
+  std::vector<double> in_b;
+  std::vector<double> out;
+  std::vector<double> expected;
   if (world.rank() == 0) {
     in_a = GenerateRandomMatrix(kMatrixSize);
     in_b = GenerateRandomMatrix(kMatrixSize);
@@ -72,7 +75,10 @@ TEST(nasedkin_e_strassen_algorithm_all, test_pipeline_run) {
 TEST(nasedkin_e_strassen_algorithm_all, test_task_run) {
   boost::mpi::communicator world;
   constexpr size_t kMatrixSize = 512;
-  std::vector<double> in_a, in_b, out, expected;
+  std::vector<double> in_a;
+  std::vector<double> in_b;
+  std::vector<double> out;
+  std::vector<double> expected;
   if (world.rank() == 0) {
     in_a = GenerateRandomMatrix(kMatrixSize);
     in_b = GenerateRandomMatrix(kMatrixSize);

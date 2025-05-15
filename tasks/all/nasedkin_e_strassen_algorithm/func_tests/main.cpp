@@ -31,7 +31,9 @@ std::vector<double> GenerateIdentityMatrix(int size) {
 
 void RunRandomMatrixTest(int size) {
   boost::mpi::communicator world;
-  std::vector<double> in_a, in_b, out;
+  std::vector<double> in_a;
+  std::vector<double> in_b;
+  std::vector<double> out;
   if (world.rank() == 0) {
     in_a = GenerateRandomMatrix(size);
     in_b = GenerateRandomMatrix(size);
@@ -57,7 +59,10 @@ void RunRandomMatrixTest(int size) {
 
 void RunFixedMatrixTest(int size) {
   boost::mpi::communicator world;
-  std::vector<double> in_a, in_b, out, expected;
+  std::vector<double> in_a;
+  std::vector<double> in_b;
+  std::vector<double> out;
+  std::vector<double> expected;
   if (world.rank() == 0) {
     in_a.resize(size * size);
     in_b.resize(size * size);
@@ -94,7 +99,9 @@ void RunFixedMatrixTest(int size) {
 
 void RunRandomMatrixIdentityTest(int size) {
   boost::mpi::communicator world;
-  std::vector<double> in_a, in_b, out;
+  std::vector<double> in_a;
+  std::vector<double> in_b;
+  std::vector<double> out;
   if (world.rank() == 0) {
     in_a = GenerateRandomMatrix(size);
     in_b = GenerateIdentityMatrix(size);
@@ -126,7 +133,9 @@ void RunRandomMatrixIdentityTest(int size) {
 
 void RunFixedMatrixIdentityTest(int size) {
   boost::mpi::communicator world;
-  std::vector<double> in_a, in_b, out;
+  std::vector<double> in_a;
+  std::vector<double> in_b;
+  std::vector<double> out;
   if (world.rank() == 0) {
     in_a.resize(size * size);
     in_b = GenerateIdentityMatrix(size);
@@ -163,7 +172,9 @@ void RunFixedMatrixIdentityTest(int size) {
 TEST(nasedkin_e_strassen_algorithm_all, test_validation_zero_size) {
   boost::mpi::communicator world;
   auto task_data = std::make_shared<ppc::core::TaskData>();
-  std::vector<double> a(0), b(0), out(0);
+  std::vector<double> in_a(0);
+  std::vector<double> in_b(0);
+  std::vector<double> out(0);
   if (world.rank() == 0) {
     task_data->inputs = {reinterpret_cast<uint8_t *>(a.data()), reinterpret_cast<uint8_t *>(b.data())};
     task_data->inputs_count = {0, 0};

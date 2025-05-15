@@ -64,10 +64,6 @@ bool StrassenAll::ValidationImpl() {
       int size_output = static_cast<int>(std::sqrt(output_size));
       valid = (size_a == size_b) && (size_a == size_output);
     }
-    // Проверка количества процессов (1–4)
-    if (world_.size() < 1 || world_.size() > 4) {
-      valid = false;
-    }
   }
   boost::mpi::broadcast(world_, valid, 0);
   return valid;
@@ -179,7 +175,7 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
     }
 
     local_result.resize(half_size * half_size);
-    if (size <= 64) {
+    if (size <= 32) {
       local_result = StandardMultiply(inputs_a[prod_idx], inputs_b[prod_idx], half_size);
     } else {
       std::vector<std::thread> threads;
