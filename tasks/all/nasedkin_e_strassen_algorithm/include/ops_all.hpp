@@ -31,7 +31,7 @@ class StrassenAll : public ppc::core::Task {
                                                       int padded_size);
   static std::vector<double> StrassenMultiply(const std::vector<double>& a, const std::vector<double>& b, int size);
   static void StrassenWorker(int prod_idx, const std::vector<double>& a, const std::vector<double>& b, int size,
-                      std::vector<double>& result, std::mutex& mtx);
+                             std::vector<double>& result, std::mutex& mtx);
 
   std::vector<double> input_matrix_a_;
   std::vector<double> input_matrix_b_;
