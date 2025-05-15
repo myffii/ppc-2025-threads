@@ -70,56 +70,66 @@ bool StrassenAll::ValidationImpl() {
   return valid;
 }
 
-std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
-                                                  int size) {
-  if (size <= 32) {
-    return StandardMultiply(a, b, size);
+bool StrassenAll::RunImpl() {
+  constexpr int num_prods = 7;
+  int half_size = matrix_size_ / 2;
+  std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
+      a22(half_size * half_size);
+  std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
+      b22(half_size * half_size);
+
+  SplitMatrix(input_matrix_a_, a11, 0, 0, matrix_size_);
+  SplitMatrix(input_matrix_a_, a12, 0, half_size, matrix_size_);
+  SplitMatrix(input_matrix_a_, a21, half_size, 0, matrix_size_);
+  SplitMatrix(input_matrix_a_, a22, half_size, half_size, matrix_size_);
+  SplitMatrix(input_matrix_b_, b11, 0, 0, matrix_size_);
+  SplitMatrix(input_matrix_b_, b12, 0, half_size, matrix_size_);
+  SplitMatrix(input_matrix_b_, b21, half_size, 0, matrix_size_);
+  SplitMatrix(input_matrix_b_, b22, half_size, half_size, matrix_size_);
+
+  std::vector<std::vector<double>> products(num_prods, std::vector<double>(half_size * half_size));
+  std::mutex mtx;
+  std::vector<std::thread> threads;
+
+  for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
+    threads.emplace_back(&StrassenAll::StrassenWorker, this, i, std::cref(input_matrix_a_), std::cref(input_matrix_b_),
+                         matrix_size_, std::ref(products[i]), std::ref(mtx));
+  }
+  for (auto &t : threads) t.join();
+
+  if (world_.rank() == 0) {
+    std::vector<std::vector<double>> all_products(num_prods, std::vector<double>(half_size * half_size));
+    for (size_t i = 0; i < num_prods; ++i) {
+      if (i % world_.size() == 0) {
+        all_products[i] = products[i];
+      } else {
+        int src = i % world_.size();
+        world_.recv(src, i, all_products[i]);
+      }
+    }
+
+    std::vector<double> c11 = AddMatrices(
+        SubtractMatrices(AddMatrices(all_products[0], all_products[3], half_size), all_products[4], half_size),
+        all_products[6], half_size);
+    std::vector<double> c12 = AddMatrices(all_products[2], all_products[4], half_size);
+    std::vector<double> c21 = AddMatrices(all_products[1], all_products[3], half_size);
+    std::vector<double> c22 = AddMatrices(
+        SubtractMatrices(AddMatrices(all_products[0], all_products[2], half_size), all_products[1], half_size),
+        all_products[5], half_size);
+
+    output_matrix_.resize(matrix_size_ * matrix_size_);
+    MergeMatrix(output_matrix_, c11, 0, 0, matrix_size_);
+    MergeMatrix(output_matrix_, c12, 0, half_size, matrix_size_);
+    MergeMatrix(output_matrix_, c21, half_size, 0, matrix_size_);
+    MergeMatrix(output_matrix_, c22, half_size, half_size, matrix_size_);
+  } else {
+    for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
+      world_.send(0, i, products[i]);
+    }
   }
 
-  int half_size = size / 2;
-  int half_size_squared = half_size * half_size;
-
-  std::vector<double> a11(half_size_squared);
-  std::vector<double> a12(half_size_squared);
-  std::vector<double> a21(half_size_squared);
-  std::vector<double> a22(half_size_squared);
-  std::vector<double> b11(half_size_squared);
-  std::vector<double> b12(half_size_squared);
-  std::vector<double> b21(half_size_squared);
-  std::vector<double> b22(half_size_squared);
-
-  SplitMatrix(a, a11, 0, 0, size);
-  SplitMatrix(a, a12, 0, half_size, size);
-  SplitMatrix(a, a21, half_size, 0, size);
-  SplitMatrix(a, a22, half_size, half_size, size);
-  SplitMatrix(b, b11, 0, 0, size);
-  SplitMatrix(b, b12, 0, half_size, size);
-  SplitMatrix(b, b21, half_size, 0, size);
-  SplitMatrix(b, b22, half_size, half_size, size);
-
-  std::vector<double> p1 =
-      StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
-  std::vector<double> p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
-  std::vector<double> p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
-  std::vector<double> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
-  std::vector<double> p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
-  std::vector<double> p6 =
-      StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
-  std::vector<double> p7 =
-      StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
-
-  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
-  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
-  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
-  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
-
-  std::vector<double> result(size * size);
-  MergeMatrix(result, c11, 0, 0, size);
-  MergeMatrix(result, c12, 0, half_size, size);
-  MergeMatrix(result, c21, half_size, 0, size);
-  MergeMatrix(result, c22, half_size, half_size, size);
-
-  return result;
+  world_.barrier();
+  return true;
 }
 
 void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, const std::vector<double> &b, int size,
@@ -197,70 +207,6 @@ void StrassenAll::StrassenWorker(int prod_idx, const std::vector<double> &a, con
   result = local_result;
 }
 
-bool StrassenAll::RunImpl() {
-  constexpr int num_prods = 7;
-  int half_size = matrix_size_ / 2;
-  std::vector<double> a11(half_size * half_size), a12(half_size * half_size), a21(half_size * half_size),
-      a22(half_size * half_size);
-  std::vector<double> b11(half_size * half_size), b12(half_size * half_size), b21(half_size * half_size),
-      b22(half_size * half_size);
-
-  SplitMatrix(input_matrix_a_, a11, 0, 0, matrix_size_);
-  SplitMatrix(input_matrix_a_, a12, 0, half_size, matrix_size_);
-  SplitMatrix(input_matrix_a_, a21, half_size, 0, matrix_size_);
-  SplitMatrix(input_matrix_a_, a22, half_size, half_size, matrix_size_);
-  SplitMatrix(input_matrix_b_, b11, 0, 0, matrix_size_);
-  SplitMatrix(input_matrix_b_, b12, 0, half_size, matrix_size_);
-  SplitMatrix(input_matrix_b_, b21, half_size, 0, matrix_size_);
-  SplitMatrix(input_matrix_b_, b22, half_size, half_size, matrix_size_);
-
-  std::vector<std::vector<double>> products(num_prods, std::vector<double>(half_size * half_size));
-  std::mutex mtx;
-  std::vector<std::thread> threads;
-
-  // Циклическое распределение задач между процессами
-  for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
-    threads.emplace_back(&StrassenAll::StrassenWorker, this, i, std::cref(input_matrix_a_), std::cref(input_matrix_b_),
-                         matrix_size_, std::ref(products[i]), std::ref(mtx));
-  }
-  for (auto &t : threads) t.join();
-
-  // Сбор результатов на процессе с рангом 0
-  if (world_.rank() == 0) {
-    std::vector<std::vector<double>> all_products(num_prods, std::vector<double>(half_size * half_size));
-    for (size_t i = 0; i < num_prods; ++i) {
-      if (i % world_.size() == 0) {
-        all_products[i] = products[i];
-      } else {
-        int src = i % world_.size();
-        world_.recv(src, i, all_products[i]);
-      }
-    }
-
-    std::vector<double> c11 = AddMatrices(
-        SubtractMatrices(AddMatrices(all_products[0], all_products[3], half_size), all_products[4], half_size),
-        all_products[6], half_size);
-    std::vector<double> c12 = AddMatrices(all_products[2], all_products[4], half_size);
-    std::vector<double> c21 = AddMatrices(all_products[1], all_products[3], half_size);
-    std::vector<double> c22 = AddMatrices(
-        SubtractMatrices(AddMatrices(all_products[0], all_products[2], half_size), all_products[1], half_size),
-        all_products[5], half_size);
-
-    output_matrix_.resize(matrix_size_ * matrix_size_);
-    MergeMatrix(output_matrix_, c11, 0, 0, matrix_size_);
-    MergeMatrix(output_matrix_, c12, 0, half_size, matrix_size_);
-    MergeMatrix(output_matrix_, c21, half_size, 0, matrix_size_);
-    MergeMatrix(output_matrix_, c22, half_size, half_size, matrix_size_);
-  } else {
-    for (size_t i = world_.rank(); i < num_prods; i += world_.size()) {
-      world_.send(0, i, products[i]);
-    }
-  }
-
-  world_.barrier();
-  return true;
-}
-
 bool StrassenAll::PostProcessingImpl() {
   if (world_.rank() == 0) {
     if (original_size_ != matrix_size_) {
@@ -318,6 +264,58 @@ std::vector<double> StrassenAll::TrimMatrixToOriginalSize(const std::vector<doub
                       trimmed_matrix.begin() + i * original_size);
   }
   return trimmed_matrix;
+}
+
+std::vector<double> StrassenAll::StrassenMultiply(const std::vector<double> &a, const std::vector<double> &b,
+                                                  int size) {
+  if (size <= 32) {
+    return StandardMultiply(a, b, size);
+  }
+
+  int half_size = size / 2;
+  int half_size_squared = half_size * half_size;
+
+  std::vector<double> a11(half_size_squared);
+  std::vector<double> a12(half_size_squared);
+  std::vector<double> a21(half_size_squared);
+  std::vector<double> a22(half_size_squared);
+  std::vector<double> b11(half_size_squared);
+  std::vector<double> b12(half_size_squared);
+  std::vector<double> b21(half_size_squared);
+  std::vector<double> b22(half_size_squared);
+
+  SplitMatrix(a, a11, 0, 0, size);
+  SplitMatrix(a, a12, 0, half_size, size);
+  SplitMatrix(a, a21, half_size, 0, size);
+  SplitMatrix(a, a22, half_size, half_size, size);
+  SplitMatrix(b, b11, 0, 0, size);
+  SplitMatrix(b, b12, 0, half_size, size);
+  SplitMatrix(b, b21, half_size, 0, size);
+  SplitMatrix(b, b22, half_size, half_size, size);
+
+  std::vector<double> p1 =
+      StrassenMultiply(AddMatrices(a11, a22, half_size), AddMatrices(b11, b22, half_size), half_size);
+  std::vector<double> p2 = StrassenMultiply(AddMatrices(a21, a22, half_size), b11, half_size);
+  std::vector<double> p3 = StrassenMultiply(a11, SubtractMatrices(b12, b22, half_size), half_size);
+  std::vector<double> p4 = StrassenMultiply(a22, SubtractMatrices(b21, b11, half_size), half_size);
+  std::vector<double> p5 = StrassenMultiply(AddMatrices(a11, a12, half_size), b22, half_size);
+  std::vector<double> p6 =
+      StrassenMultiply(SubtractMatrices(a21, a11, half_size), AddMatrices(b11, b12, half_size), half_size);
+  std::vector<double> p7 =
+      StrassenMultiply(SubtractMatrices(a12, a22, half_size), AddMatrices(b21, b22, half_size), half_size);
+
+  std::vector<double> c11 = AddMatrices(SubtractMatrices(AddMatrices(p1, p4, half_size), p5, half_size), p7, half_size);
+  std::vector<double> c12 = AddMatrices(p3, p5, half_size);
+  std::vector<double> c21 = AddMatrices(p2, p4, half_size);
+  std::vector<double> c22 = AddMatrices(SubtractMatrices(AddMatrices(p1, p3, half_size), p2, half_size), p6, half_size);
+
+  std::vector<double> result(size * size);
+  MergeMatrix(result, c11, 0, 0, size);
+  MergeMatrix(result, c12, 0, half_size, size);
+  MergeMatrix(result, c21, half_size, 0, size);
+  MergeMatrix(result, c22, half_size, half_size, size);
+
+  return result;
 }
 
 void StrassenAll::SplitMatrix(const std::vector<double> &parent, std::vector<double> &child, int row_start,
