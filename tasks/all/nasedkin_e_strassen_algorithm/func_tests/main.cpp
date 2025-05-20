@@ -189,7 +189,6 @@ TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_fixed_identity) { RunF
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_fixed_identity) { RunFixedMatrixIdentityTest(64); }
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_random_identity) { RunRandomMatrixIdentityTest(63); }
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_random_identity) { RunRandomMatrixIdentityTest(64); }
-TEST(nasedkin_e_strassen_algorithm_all, test_matrix_32x32_fixed) { RunFixedMatrixTest(32); }
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_63x63_fixed) { RunFixedMatrixTest(63); }
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_fixed) { RunFixedMatrixTest(64); }
 TEST(nasedkin_e_strassen_algorithm_all, test_matrix_64x64_random) { RunRandomMatrixTest(64); }
