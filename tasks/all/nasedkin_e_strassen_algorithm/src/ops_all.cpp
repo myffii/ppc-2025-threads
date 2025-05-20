@@ -40,6 +40,12 @@ bool StrassenAll::PreProcessingImpl() {
 
     output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
   }
+  
+    if (world_.rank() != 0) {
+    input_matrix_a_.resize(matrix_size_ * matrix_size_);
+    input_matrix_b_.resize(matrix_size_ * matrix_size_);
+    output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
+  }
 
   return true;
 }
@@ -67,11 +73,6 @@ bool StrassenAll::ValidationImpl() {
 bool StrassenAll::RunImpl() {
   boost::mpi::broadcast(world_, matrix_size_, 0);
   boost::mpi::broadcast(world_, original_size_, 0);
-  if (world_.rank() != 0) {
-    input_matrix_a_.resize(matrix_size_ * matrix_size_);
-    input_matrix_b_.resize(matrix_size_ * matrix_size_);
-    output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
-  }
   boost::mpi::broadcast(world_, input_matrix_a_, 0);
   boost::mpi::broadcast(world_, input_matrix_b_, 0);
 
