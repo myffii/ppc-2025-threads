@@ -40,7 +40,7 @@ bool StrassenAll::PreProcessingImpl() {
 
     output_matrix_.resize(matrix_size_ * matrix_size_, 0.0);
   }
-  
+
   if (world_.rank() != 0) {
     input_matrix_a_.resize(matrix_size_ * matrix_size_);
     input_matrix_b_.resize(matrix_size_ * matrix_size_);
